@@ -5,9 +5,6 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-ENV INPUT_FILE_PATH=/inputs
-ENV OUTPUT_DIR_PATH=/outputs
-
 # Install system dependencies that might be needed by PyTorch or other libraries
 # libgomp1 is often needed for OpenMP support in PyTorch CPU operations
 RUN apt-get update && apt-get install -y --no-install-recommends \
