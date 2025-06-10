@@ -5,6 +5,9 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
+ENV INPUT_FILE_PATH=/inputs
+ENV OUTPUT_DIR_PATH=/outputs
+
 # Install system dependencies that might be needed by PyTorch or other libraries
 # libgomp1 is often needed for OpenMP support in PyTorch CPU operations
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,7 +22,7 @@ RUN mkdir -p ${XDG_CACHE_HOME}
 # Install marker and its CPU dependencies (onnxruntime)
 # Using marker-splitter as it's the recommended package.
 # Pin versions if you need stability.
-RUN pip install --no-cache-dir marker-pdf torch torchvision torchaudio
+RUN pip install --no-cache-dir marker-pdf[full] torch torchvision torchaudio
 
 # Copy the entrypoint script into the container
 COPY entrypoint.sh .
@@ -27,7 +30,3 @@ RUN chmod +x entrypoint.sh
 
 # Set the entrypoint
 ENTRYPOINT ["./entrypoint.sh"]
-
-# Default command (can be overridden when running docker run)
-# These are placeholders; actual paths will be provided during `docker run` via volumes.
-CMD ["/inputs/example.pdf", "/outputs"]
