@@ -1,0 +1,13 @@
+services:
+  doc-reader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./inputs:/inputs
+      - ./outputs:/outputs
+    environment:
+      - INPUT_FILE_PATH=/inputs
+      - OUTPUT_DIR_PATH=/outputs
+    stdin_open: true  # equivalent to -i
+    tty: true        # equivalent to -t
