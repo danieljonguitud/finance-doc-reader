@@ -19,7 +19,7 @@ RUN mkdir -p ${XDG_CACHE_HOME}
 # Install marker and its CPU dependencies (onnxruntime)
 # Using marker-splitter as it's the recommended package.
 # Pin versions if you need stability.
-RUN pip install --no-cache-dir marker-pdf[full] torch torchvision torchaudio
+RUN pip install --no-cache-dir marker-pdf torch torchvision torchaudio
 
 # Copy the entrypoint script into the container
 COPY entrypoint.sh .

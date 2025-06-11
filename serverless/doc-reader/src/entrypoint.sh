@@ -26,7 +26,7 @@ echo "Output directory: $OUTPUT_DIR_PATH"
 # Adjust --batch_multiplier and --max_pages as needed for your testing/performance.
 # marker_cli will create a markdown file named <input_filename_without_extension>.md inside the OUTPUT_DIR_PATH.
 # marker "$INPUT_FILE_PATH" "$OUTPUT_DIR_PATH" --workers 0 --batch_multiplier 1 # --max_pages 5 (optional: for faster testing)
-marker "$INPUT_FILE_PATH" --output_dir "$OUTPUT_DIR_PATH" --workers 0 # Removed --batch_multiplier 1 since it's not supported in multiple files
+marker "$INPUT_FILE_PATH" --output_dir "$OUTPUT_DIR_PATH" --workers 0 --disable_image_extraction # Removed --batch_multiplier 1 since it's not supported in multiple files
 
 
 # Extract the base name of the input file (e.g., "document.pdf" -> "document")
