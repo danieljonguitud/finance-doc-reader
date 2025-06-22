@@ -70,12 +70,13 @@ if [ ! -f "$DOCKER_CONTEXT_PATH/Dockerfile" ]; then
 fi
 
 echo
-echo "STEP 3: Building and pushing Docker image..."
+echo "STEP 3: Building and pushing Docker image for amd64 platform..."
 echo "Context path: $DOCKER_CONTEXT_PATH"
 echo "Image name:   $FULL_IMAGE_NAME"
 
-# Build the image and tag it in one step
-docker build -t "$FULL_IMAGE_NAME" "$DOCKER_CONTEXT_PATH"
+# Use 'docker buildx' to build for a specific platform (linux/amd64)
+# The --load flag ensures the image is available for the subsequent 'docker push'
+docker buildx build --platform linux/amd64 -t "$FULL_IMAGE_NAME" --load "$DOCKER_CONTEXT_PATH"
 
 echo
 echo "Pushing image to ECR..."
