@@ -110,7 +110,7 @@ Resources:
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: !Ref ProjectName
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository.RepositoryName}:latest"
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}:latest"
           LogConfiguration:
             LogDriver: awslogs
             Options:
