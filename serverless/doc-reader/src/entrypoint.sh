@@ -39,7 +39,7 @@ echo "Download complete."
 echo "--- Starting Marker Conversion ---"
 # marker_cli expects the output directory to exist.
 # It will create a markdown file named <input_filename_without_extension>.md inside the output directory.
-marker "$LOCAL_INPUT_FILE" --output_dir "$LOCAL_OUTPUT_DIR" --workers 0 --disable_image_extraction
+marker "$LOCAL_PROCESSING_DIR" --output_dir "$LOCAL_OUTPUT_DIR" --workers 0 --disable_image_extraction
 
 # --- Verify and Upload Output ---
 echo "--- Verifying and Uploading Output ---"

@@ -105,7 +105,7 @@ Resources:
         - FARGATE
       NetworkMode: awsvpc
       Cpu: "4096" # 4 vCPU
-      Memory: "8192" # 8 GB - Marker can be memory intensive
+      Memory: "16384" # 16 GB - Marker can be memory intensive
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
