@@ -63,6 +63,11 @@ Resources:
           Statement:
           - Effect: Allow
             Action:
+            - s3:ListBucket
+            Resource:
+              Fn::Sub: arn:aws:s3:::${InputBucket}
+          - Effect: Allow
+            Action:
             - s3:GetObject
             Resource:
               Fn::Sub: arn:aws:s3:::${InputBucket}/*
@@ -100,7 +105,7 @@ Resources:
       - FARGATE
       NetworkMode: awsvpc
       Cpu: '4096'
-      Memory: '8192'
+      Memory: '16384'
       ExecutionRoleArn:
         Fn::GetAtt:
         - TaskExecutionRole

@@ -12,10 +12,10 @@ set -o pipefail # The return value of a pipeline is the status of the last comma
 # - A test file must be uploaded to the input S3 bucket.
 #
 # Usage:
-# ./test-fargate-task.sh <stack-name> <aws-region> <test-filename-in-s3>
+# ./test-fargate-task.sh <stack-name> <aws-region>
 #
 # Example from the project root:
-# ./serverless/doc-reader/test-fargate-task.sh doc-reader-infra us-east-1 iso_27001_global_certification.pdf
+# ./serverless/doc-reader/test-fargate-task.sh doc-reader-infra us-east-1
 
 # --- Check for required commands ---
 command -v aws >/dev/null 2>&1 || { echo >&2 "Error: AWS CLI is required but not installed. Aborting."; exit 1; }
@@ -24,18 +24,17 @@ command -v jq >/dev/null 2>&1 || { echo >&2 "Error: jq is required but not insta
 # --- Configuration from command-line arguments ---
 STACK_NAME=$1
 AWS_REGION=$2
-TEST_FILE_NAME=$3
 
-if [ -z "$STACK_NAME" ] || [ -z "$AWS_REGION" ] || [ -z "$TEST_FILE_NAME" ]; then
-  echo "Usage: ./test-fargate-task.sh <stack-name> <aws-region> <test-filename-in-s3>"
-  echo "Example: ./test-fargate-task.sh doc-reader-infra us-east-1 iso_27001_global_certification.pdf"
+if [ -z "$STACK_NAME" ] || [ -z "$AWS_REGION" ]; then
+  echo "Usage: ./test-fargate-task.sh <stack-name> <aws-region>"
+  echo "Example: ./test-fargate-task.sh doc-reader-infra us-east-1"
   exit 1
 fi
 
 echo "--- Configuration ---"
 echo "CloudFormation Stack Name: $STACK_NAME"
 echo "AWS Region:              $AWS_REGION"
-echo "Test File Name:          $TEST_FILE_NAME"
+echo "Processing:              All PDFs in input bucket"
 echo "---------------------"
 
 # --- 1. Get Required Values from CloudFormation Stack Outputs ---
@@ -78,7 +77,6 @@ echo "  -> Using Subnet:      $SUBNET_ID"
 echo
 echo "STEP 3: Triggering Fargate task..."
 OUTPUT_S3_PREFIX="s3://${OUTPUT_BUCKET}/test-run-output"
-INPUT_S3_URI="s3://${INPUT_BUCKET}/${TEST_FILE_NAME}"
 
 TASK_RUN_OUTPUT=$(aws ecs run-task \
   --region "$AWS_REGION" \
@@ -92,8 +90,8 @@ TASK_RUN_OUTPUT=$(aws ecs run-task \
           "name": "doc-reader-local",
           "environment": [
             {
-              "name": "INPUT_S3_URI",
-              "value": "'"$INPUT_S3_URI"'"
+              "name": "INPUT_S3_BUCKET",
+              "value": "'"$INPUT_BUCKET"'"
             },
             {
               "name": "OUTPUT_S3_URI_PREFIX",
