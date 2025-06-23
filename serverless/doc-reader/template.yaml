@@ -110,6 +110,8 @@ Resources:
       NetworkMode: awsvpc
       Cpu: "4096" # 4 vCPU
       Memory: "16384" # 16 GB - Marker can be memory intensive
+      RuntimePlatform:
+        CpuArchitecture: ARM64
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:

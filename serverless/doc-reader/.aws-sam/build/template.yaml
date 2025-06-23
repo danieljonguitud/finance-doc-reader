@@ -106,6 +106,8 @@ Resources:
       NetworkMode: awsvpc
       Cpu: '4096'
       Memory: '16384'
+      RuntimePlatform:
+        CpuArchitecture: ARM64
       ExecutionRoleArn:
         Fn::GetAtt:
         - TaskExecutionRole
