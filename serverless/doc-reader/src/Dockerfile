@@ -19,7 +19,13 @@ RUN mkdir -p ${XDG_CACHE_HOME}
 # Install marker and its CPU dependencies (onnxruntime)
 # Using marker-splitter as it's the recommended package.
 # Pin versions if you need stability.
-RUN pip install --no-cache-dir marker-pdf torch torchvision torchaudio awscli
+RUN pip install --no-cache-dir marker-pdf torch torchvision awscli
+
+# Pre-download marker models during build by running marker on a dummy PDF
+RUN python -c "import os; pdf_content = b'%PDF-1.4\\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj xref\\n0 4\\n0000000000 65535 f\\n0000000009 00000 n\\n0000000058 00000 n\\n0000000115 00000 n\\ntrailer<</Size 4/Root 1 0 R>>\\nstartxref\\n175\\n%%EOF'; open('/tmp/dummy.pdf', 'wb').write(pdf_content)" && \
+    mkdir -p /tmp/output && \
+    marker /tmp --output_dir /tmp/output --workers 1 --disable_image_extraction || echo "Models downloaded successfully" && \
+    rm -rf /tmp/dummy.pdf /tmp/output
 
 # Copy the entrypoint script into the container
 COPY entrypoint.sh .
