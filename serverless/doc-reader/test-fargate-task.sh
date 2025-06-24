@@ -40,10 +40,10 @@ echo "---------------------"
 # --- 1. Get Required Values from CloudFormation Stack Outputs ---
 echo
 echo "STEP 1: Fetching resource names from stack '$STACK_NAME'..."
-CLUSTER_NAME=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='EcsClusterName'].OutputValue" --output text)
+CLUSTER_NAME=$(aws cloudformation describe-stacks --stack-name "finance-doc-reader-core-infra" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='EcsClusterName'].OutputValue" --output text)
 TASK_DEFINITION_ARN=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='TaskDefinitionArn'].OutputValue" --output text)
-INPUT_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='InputBucketName'].OutputValue" --output text)
-OUTPUT_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='OutputBucketName'].OutputValue" --output text)
+INPUT_BUCKET=$(aws cloudformation describe-stacks --stack-name "finance-doc-reader-core-infra" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='InputBucketName'].OutputValue" --output text)
+OUTPUT_BUCKET=$(aws cloudformation describe-stacks --stack-name "finance-doc-reader-core-infra" --region "$AWS_REGION" --query "Stacks[0].Outputs[?OutputKey=='OutputBucketName'].OutputValue" --output text)
 
 # Validate that we got all the values
 if [ -z "$CLUSTER_NAME" ] || [ -z "$TASK_DEFINITION_ARN" ] || [ -z "$INPUT_BUCKET" ] || [ -z "$OUTPUT_BUCKET" ]; then

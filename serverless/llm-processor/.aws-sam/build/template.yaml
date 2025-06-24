@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Deploys Step Functions workflow with Amazon Bedrock integration for
+  LLM processing. Processes markdown files with LLM instructions and returns structured
+  responses.
+
+  '
+Parameters:
+  ProjectName:
+    Type: String
+    Default: llm-processor
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-3-sonnet-20240229-v1:0
+    Description: The Bedrock model ID to use for LLM processing
+Resources:
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-StepFunctionsExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: states.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-BedrockInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - bedrock:InvokeModel
+            Resource:
+              Fn::Sub: arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-S3AccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+              Fn::Sub:
+              - arn:aws:s3:::${InputBucket}/*
+              - InputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-input-bucket
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-CloudWatchLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+  LlmProcessorStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Description: LLM Document Processor
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-StateMachine
+      Role:
+        Fn::GetAtt:
+        - StepFunctionsExecutionRole
+        - Arn
+      DefinitionUri: ../../llm-processor-state-machine.yaml
+Outputs:
+  StateMachineArn:
+    Description: The ARN of the Step Functions State Machine
+    Value:
+      Ref: LlmProcessorStateMachine
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-state-machine-arn
