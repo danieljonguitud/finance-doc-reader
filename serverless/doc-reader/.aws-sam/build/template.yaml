@@ -8,41 +8,7 @@ Parameters:
   ProjectName:
     Type: String
     Default: doc-reader
-    Description: A name for the project, used to prefix resource names.
 Resources:
-  InputBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        Fn::Sub: ${ProjectName}-input-bucket-${AWS::AccountId}-${AWS::Region}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-  OutputBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        Fn::Sub: ${ProjectName}-output-bucket-${AWS::AccountId}-${AWS::Region}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-  EcrRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName:
-        Ref: ProjectName
-      ImageScanningConfiguration:
-        ScanOnPush: true
-      ImageTagMutability: MUTABLE
-  EcsCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName:
-        Fn::Sub: ${ProjectName}-cluster
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -65,17 +31,34 @@ Resources:
             Action:
             - s3:ListBucket
             Resource:
-              Fn::Sub: arn:aws:s3:::${InputBucket}
+              Fn::Sub:
+              - arn:aws:s3:::${InputBucket}
+              - InputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-input-bucket
           - Effect: Allow
             Action:
             - s3:GetObject
             Resource:
-              Fn::Sub: arn:aws:s3:::${InputBucket}/*
+              Fn::Sub:
+              - arn:aws:s3:::${InputBucket}/*
+              - InputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-input-bucket
           - Effect: Allow
             Action:
             - s3:PutObject
             Resource:
-              Fn::Sub: arn:aws:s3:::${OutputBucket}/*
+              Fn::Sub:
+              - arn:aws:s3:::${OutputBucket}/*
+              - OutputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-input-bucket
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName:
+        Ref: ProjectName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
   TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -137,19 +120,7 @@ Outputs:
       Fn::GetAtt:
       - EcrRepository
       - RepositoryUri
-  EcsClusterName:
-    Description: The name of the ECS Cluster
-    Value:
-      Ref: EcsCluster
   TaskDefinitionArn:
     Description: The ARN of the ECS Task Definition
     Value:
       Ref: TaskDefinition
-  InputBucketName:
-    Description: Name of the S3 bucket for input files
-    Value:
-      Ref: InputBucket
-  OutputBucketName:
-    Description: Name of the S3 bucket for output files
-    Value:
-      Ref: OutputBucket

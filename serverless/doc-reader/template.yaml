@@ -8,47 +8,8 @@ Parameters:
   ProjectName:
     Type: String
     Default: doc-reader
-    Description: A name for the project, used to prefix resource names.
 
 Resources:
-  # --- S3 Buckets for Input and Output ---
-  InputBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${ProjectName}-input-bucket-${AWS::AccountId}-${AWS::Region}"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
-  OutputBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${ProjectName}-output-bucket-${AWS::AccountId}-${AWS::Region}"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
-  # --- ECR Repository to store the Docker image ---
-  EcrRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Ref ProjectName
-      ImageScanningConfiguration:
-        ScanOnPush: true
-      ImageTagMutability: MUTABLE
-
-  # --- ECS Cluster ---
-  EcsCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: !Sub "${ProjectName}-cluster"
-
-  # --- IAM Roles for the Fargate Task ---
-  # Role for the container to access other AWS services (e.g., S3)
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -68,15 +29,29 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:ListBucket
-                Resource: !Sub "arn:aws:s3:::${InputBucket}"
+                Resource: !Sub 
+                  - "arn:aws:s3:::${InputBucket}"
+                  - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: !Sub "arn:aws:s3:::${InputBucket}/*"
+                Resource: !Sub
+                  - "arn:aws:s3:::${InputBucket}/*"
+                  - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
               - Effect: Allow
                 Action:
                   - s3:PutObject
-                Resource: !Sub "arn:aws:s3:::${OutputBucket}/*"
+                Resource: !Sub
+                  - "arn:aws:s3:::${OutputBucket}/*"
+                  - OutputBucket: !ImportValue finance-doc-core-infra-input-bucket
+
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ProjectName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
 
   # Role for ECS agent to pull image and write logs
   TaskExecutionRole:
@@ -93,14 +68,12 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
-  # --- CloudWatch Log Group for container logs ---
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/ecs/${ProjectName}"
       RetentionInDays: 30
 
-  # --- ECS Task Definition: The blueprint for our container ---
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -131,15 +104,6 @@ Outputs:
   EcrRepositoryUri:
     Description: "The URI of the ECR repository for the doc-reader image"
     Value: !GetAtt EcrRepository.RepositoryUri
-  EcsClusterName:
-    Description: "The name of the ECS Cluster"
-    Value: !Ref EcsCluster
   TaskDefinitionArn:
     Description: "The ARN of the ECS Task Definition"
     Value: !Ref TaskDefinition
-  InputBucketName:
-    Description: "Name of the S3 bucket for input files"
-    Value: !Ref InputBucket
-  OutputBucketName:
-    Description: "Name of the S3 bucket for output files"
-    Value: !Ref OutputBucket

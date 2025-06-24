@@ -1,0 +1,9 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "finance-doc-reader-core-infra"
+resolve_s3 = true
+s3_prefix = "finance-doc-reader-core-infra"
+region = "us-west-2"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ProjectName=\"finance-doc-core-infra\""
+image_repositories = []

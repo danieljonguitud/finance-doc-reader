@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Deploys the core infrastructure for the finance-doc-reader
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: finance-doc-core-infra 
+
+Resources:
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-input-bucket-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-output-bucket-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-cluster"
+
+Outputs:
+  EcsClusterName:
+    Description: "The name of the ECS Cluster"
+    Value: !Ref EcsCluster
+    Export:
+      Name: !Sub '${ProjectName}-ecs-cluster'
+  InputBucketName:
+    Description: "Name of the S3 bucket for input files"
+    Value: !Ref InputBucket
+    Export:
+      Name: !Sub '${ProjectName}-input-bucket'
+  OutputBucketName:
+    Description: "Name of the S3 bucket for output files"
+    Value: !Ref InputBucket
+    Export:
+      Name: !Sub '${ProjectName}-output-bucket'
