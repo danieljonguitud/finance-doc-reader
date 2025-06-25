@@ -8,10 +8,12 @@ Parameters:
   ProjectName:
     Type: String
     Default: llm-processor
-  BedrockModelId:
+  InferenceModelId:
     Type: String
-    Default: anthropic.claude-3-sonnet-20240229-v1:0
-    Description: The Bedrock model ID to use for LLM processing
+    Default: us.meta.llama3-3-70b-instruct-v1:0
+  FoundationalModelId:
+    Type: String
+    Default: meta.llama3-3-70b-instruct-v1:0
 
 Resources:
   # IAM Role for Step Functions execution
@@ -34,7 +36,9 @@ Resources:
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
-                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::inference-profile/${InferenceModelId}"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/${FoundationalModelId}"
         - PolicyName: !Sub "${ProjectName}-S3AccessPolicy"
           PolicyDocument:
             Version: '2012-10-17'

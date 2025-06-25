@@ -1,11 +1,21 @@
 QueryLanguage: JSONata
-StartAt: Set Variables and State Output
+StartAt: GetObject
 States:
-  Set Variables and State Output:
-    Type: Pass
-    Output:
-      IsHelloWorldExample: true
-      ExecutionWaitTimeInSeconds: 3
-    Assign:
-      CheckpointCount: 0
+  GetObject:
+    Type: Task
+    Arguments:
+      Bucket: finance-doc-core-infra-input-bucket-950610185927-us-west-2
+      Key: test-run-output/edo_cuenta_inbursa.md
+    Resource: arn:aws:states:::aws-sdk:s3:getObject
+    Next: Bedrock InvokeModel
+  Bedrock InvokeModel:
+    Type: Task
+    Resource: arn:aws:states:::bedrock:invokeModel
+    Arguments:
+      ModelId: us.meta.llama3-3-70b-instruct-v1:0
+      Body:
+        prompt: hello, how are you?
+        temperature: 0
+        top_p: 1
+        max_gen_len: 1024
     End: true
