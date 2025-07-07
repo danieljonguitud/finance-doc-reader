@@ -12,10 +12,95 @@ States:
     Type: Task
     Resource: arn:aws:states:::bedrock:invokeModel
     Arguments:
-      ModelId: us.meta.llama3-3-70b-instruct-v1:0
+      ModelId: >-
+        arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0
       Body:
-        prompt: hello, how are you?
+        anthropic_version: bedrock-2023-05-31
+        max_tokens: 4096
         temperature: 0
-        top_p: 1
-        max_gen_len: 1024
+        messages:
+          - role: user
+            content:
+              - type: text
+                text: >-
+                  {% 'You are a financial data extraction assistant. Your task
+                  is to analyze bank statements provided in Markdown format and
+                  extract all transactions into a structured JSON format.
+
+
+                  ## Instructions
+
+                  1. Carefully read the provided bank statement in Markdown
+                  format
+
+                  2. Extract all transactions with their details
+
+                  3. Return the data in the specified JSON format
+
+                  4. If any information is not available in the statement, use
+                  "N/A" as the value
+
+                  5. Ensure all monetary values are returned as floats with 2 decimal points (not
+                  strings)
+
+                  6. Dates should be in ISO 8601 format (YYYY-MM-DD)
+
+                  7. The output should be the JSON only and nothing else
+
+
+                  ## Expected JSON Output Format
+
+                  ```json
+
+                  { 
+                    "accountInfo": {
+                      "accountNumber": <string or N/A>,
+                      "accountHolder": <string or N/A>,
+                      "bankName": <string or N/A>,
+                      "statementPeriod": {
+                        "startDate": <YYYY-MM-DD or N/A>,
+                        "endDate": <YYYY-MM-DD or N/A>"
+                      }
+                    },
+                    "transactions": [
+                      {
+                        "date": <YYYY-MM-DD>,
+                        "description": <string or N/A>,
+                        "amount": <float/currency>,
+                        "type": <expense or income>,
+                        "category": <string or N/A>
+                      }
+                    ],
+                    "summary": {
+                      "totalIncome": <float/currency>,
+                      "totalExepenses": <float/currency>,
+                      "transactionCount": <integer>
+                    }
+                  }
+
+                  ```
+
+
+                  ## Additional Guidelines:
+
+                  - Handle various date formats and convert them to ISO 8601
+
+                  - Remove currency symbols and convert to floats with 2 decimal points values
+
+                  - If the bank statement has additional columns not in the
+                  expected format, extract what it is available
+
+                  - If transactions are not in a table format, extract them from
+                  the text
+
+                  - Validate that the calculated totals match the statement if
+                  possible
+
+
+                  ## Bank Statement to Analyze: ' & $states.input %}
+    Next: Convert output to JSON
+  Convert output to JSON:
+    Type: Pass
     End: true
+    Assign:
+      jsonOutput: '{% $parse($states.input.Body.content[0].text) %}'

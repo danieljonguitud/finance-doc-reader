@@ -8,12 +8,9 @@ Parameters:
   ProjectName:
     Type: String
     Default: llm-processor
-  InferenceModelId:
-    Type: String
-    Default: us.meta.llama3-3-70b-instruct-v1:0
   FoundationalModelId:
     Type: String
-    Default: meta.llama3-3-70b-instruct-v1:0
+    Default: anthropic.claude-3-5-haiku-20241022-v1:0
 
 Resources:
   # IAM Role for Step Functions execution
@@ -37,8 +34,7 @@ Resources:
                 Action:
                   - bedrock:InvokeModel
                 Resource:
-                  - !Sub "arn:aws:bedrock:${AWS::Region}::inference-profile/${InferenceModelId}"
-                  - !Sub "arn:aws:bedrock:*::foundation-model/${FoundationalModelId}"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${FoundationalModelId}"
         - PolicyName: !Sub "${ProjectName}-S3AccessPolicy"
           PolicyDocument:
             Version: '2012-10-17'
