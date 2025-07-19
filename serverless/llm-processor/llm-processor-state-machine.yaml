@@ -45,8 +45,27 @@ States:
 
                   6. Dates should be in ISO 8601 format (YYYY-MM-DD)
 
-                  7. The output should be the JSON only and nothing else
+                  7. You must only used the categories from the list of available categories. If there is no category suitable for a given transaction, you must use 'Otros'
 
+                  8. The output should be the JSON only and nothing else
+
+                  ## Available Catergories:
+                  
+                  - Restaurantes
+                  - Despensa
+                  - Ropa
+                  - Cuidado Personal
+                  - Medicamentos
+                  - Gasolina
+                  - Impuestos
+                  - Comisiones Bancarias
+                  - Intereses Bancarios
+                  - Financiamiento Automotriz
+                  - Hipoteca
+                  - Tranferencia Bancaria
+                  - Servicios Digitales
+                  - Sueldos y Salarios
+                  - Pago de Tarjeta de Credito
 
                   ## Expected JSON Output Format
 
@@ -79,7 +98,6 @@ States:
                   }
 
                   ```
-
 
                   ## Additional Guidelines:
 
