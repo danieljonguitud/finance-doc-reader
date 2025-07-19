@@ -9,10 +9,9 @@ Parameters:
   ProjectName:
     Type: String
     Default: llm-processor
-  BedrockModelId:
+  FoundationalModelId:
     Type: String
-    Default: anthropic.claude-3-sonnet-20240229-v1:0
-    Description: The Bedrock model ID to use for LLM processing
+    Default: anthropic.claude-3-5-haiku-20241022-v1:0
 Resources:
   StepFunctionsExecutionRole:
     Type: AWS::IAM::Role
@@ -36,7 +35,7 @@ Resources:
             Action:
             - bedrock:InvokeModel
             Resource:
-              Fn::Sub: arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}
+            - Fn::Sub: arn:aws:bedrock:${AWS::Region}::foundation-model/${FoundationalModelId}
       - PolicyName:
           Fn::Sub: ${ProjectName}-S3AccessPolicy
         PolicyDocument:
