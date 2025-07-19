@@ -1,13 +1,29 @@
 QueryLanguage: JSONata
-StartAt: GetObject
+StartAt: Set Input Variables
 States:
+  Set Input Variables:
+    Type: Pass
+    Next: GetObject
+    Assign:
+      inputBucket: "{% $states.input.inputBucket %}"
+      inputKey: "{% $states.input.inputKey %}"
+      outputBucket: "{% $states.input.outputBucket %}"
+      outputKey: "{% $states.input.outputKey %}"
   GetObject:
     Type: Task
     Arguments:
-      Bucket: finance-doc-core-infra-input-bucket-950610185927-us-west-2
-      Key: test-run-output/edo_cuenta_inbursa.md
+      Bucket: "{% $inputBucket %}"
+      Key: "{% $.inputKey %}"
     Resource: arn:aws:states:::aws-sdk:s3:getObject
     Next: Bedrock InvokeModel
+    Retry:
+      - ErrorEquals: ["States.AWS.S3.NoSuchKey", "States.AWS.S3.NoSuchBucket"]
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 2.0
+    Catch:
+      - ErrorEquals: ["States.ALL"]
+        Next: HandleError
   Bedrock InvokeModel:
     Type: Task
     Resource: arn:aws:states:::bedrock:invokeModel
@@ -115,10 +131,39 @@ States:
                   possible
 
 
-                  ## Bank Statement to Analyze: ' & $states.input %}
+                  ## Bank Statement to Analyze: ' & $states.input.Body %}
     Next: Convert output to JSON
+    Retry:
+      - ErrorEquals: ["States.AWS.Bedrock.ThrottlingException", "States.AWS.Bedrock.ServiceQuotaExceededException"]
+        IntervalSeconds: 5
+        MaxAttempts: 3
+        BackoffRate: 2.0
+    Catch:
+      - ErrorEquals: ["States.ALL"]
+        Next: HandleError
   Convert output to JSON:
+    Type: Pass
+    Next: Processing Complete
+    Assign:
+      processedContent: '{% $parse($states.input.Body.content[0].text) %}'
+      inputMetadata:
+        inputBucket: "{% $.inputBucket %}"
+        inputKey: "{% $.inputKey %}"
+        modelId: "anthropic.claude-3-5-haiku-20241022-v1:0"
+        timestamp: "{% $now() %}"
+      outputBucket: "{% $.outputBucket %}"
+      outputKey: "{% $.outputKey %}"
+  Processing Complete:
     Type: Pass
     End: true
     Assign:
-      jsonOutput: '{% $parse($states.input.Body.content[0].text) %}'
+      status: "success"
+      message: "Document processed successfully"
+      outputLocation: "{% 's3://' & $.outputBucket & '/' & $.outputKey %}"
+  HandleError:
+    Type: Pass
+    End: true
+    Assign:
+      status: "error"
+      error: "{% $states.context.error %}"
+      errorMessage: "{% $states.context.errorMessage %}"

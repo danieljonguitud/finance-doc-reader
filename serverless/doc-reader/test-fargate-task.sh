@@ -87,7 +87,7 @@ TASK_RUN_OUTPUT=$(aws ecs run-task \
   --overrides '{
       "containerOverrides": [
         {
-          "name": "doc-reader-local",
+          "name": "'"$STACK_NAME"'",
           "environment": [
             {
               "name": "INPUT_S3_BUCKET",
@@ -110,7 +110,7 @@ echo "  -> Task ARN: $TASK_ARN"
 echo
 echo "--- What to do next ---"
 echo "1. Monitor Logs: Check the container logs for progress and errors."
-echo "   Go to CloudWatch -> Log Groups -> /ecs/doc-reader-local"
+echo "   Go to CloudWatch -> Log Groups -> /ecs/$STACK_NAME"
 echo
 echo "2. Check Output: Once the task is complete, check for the converted markdown file."
 echo "   Run the following command:"

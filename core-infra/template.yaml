@@ -33,6 +33,12 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${ProjectName}-cluster"
+  
+  DocReaderEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: doc-reader
+      Description: "Custom event bus for doc-reader service events"
 
 Outputs:
   EcsClusterName:
@@ -50,3 +56,8 @@ Outputs:
     Value: !Ref InputBucket
     Export:
       Name: !Sub '${ProjectName}-output-bucket'
+  DocReaderEventBusName:
+    Description: "Name of the Doc Reader event bus"
+    Value: !Ref DocReaderEventBus
+    Export:
+      Name: !Sub '${ProjectName}-doc-reader-event-bus-name'

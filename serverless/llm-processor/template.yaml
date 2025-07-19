@@ -45,6 +45,12 @@ Resources:
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
                   - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub
+                  - "arn:aws:s3:::${OutputBucket}/*"
+                  - OutputBucket: !ImportValue finance-doc-core-infra-output-bucket
         - PolicyName: !Sub "${ProjectName}-CloudWatchLogsPolicy"
           PolicyDocument:
             Version: '2012-10-17'

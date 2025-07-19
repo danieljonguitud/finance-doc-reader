@@ -50,7 +50,7 @@ Resources:
               Fn::Sub:
               - arn:aws:s3:::${OutputBucket}/*
               - OutputBucket:
-                  Fn::ImportValue: finance-doc-core-infra-input-bucket
+                  Fn::ImportValue: finance-doc-core-infra-output-bucket
   EcrRepository:
     Type: AWS::ECR::Repository
     Properties:

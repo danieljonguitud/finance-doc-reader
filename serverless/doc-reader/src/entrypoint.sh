@@ -19,6 +19,10 @@ LOCAL_PROCESSING_DIR=$(mktemp -d)
 LOCAL_OUTPUT_DIR="$LOCAL_PROCESSING_DIR/output"
 mkdir -p "$LOCAL_OUTPUT_DIR"
 
+# Create timestamp for this processing run
+PROCESSING_TIMESTAMP=$(date -u +"%Y-%m-%d-%H-%M-%S")
+echo "Processing timestamp: $PROCESSING_TIMESTAMP"
+
 echo "Local processing directory: $LOCAL_PROCESSING_DIR"
 echo "Local output directory: $LOCAL_OUTPUT_DIR"
 
@@ -47,14 +51,27 @@ echo "--- Finding and uploading all markdown files ---"
 
 # Find all .md files recursively in output directory
 MD_FILES_FOUND=0
+FAILED_UPLOADS=0
+
 find "$LOCAL_OUTPUT_DIR" -name "*.md" -type f | while read -r md_file; do
-  # Extract filename without path and extension for S3 key
+  # Get relative path from LOCAL_PROCESSING_DIR to preserve folder structure
+  relative_path=$(realpath --relative-to="$LOCAL_PROCESSING_DIR" "$md_file")
+  # Extract just the filename for custom naming
   base_name=$(basename "$md_file" .md)
-  s3_destination="$OUTPUT_S3_URI_PREFIX/${base_name}.md"
+  
+  # Create organized S3 path: doc-reader-outputs/YYYY-MM-DD-HH-MM-SS/original-filename-YYYY-MM-DD-HH-MM-SS.md
+  s3_destination="$OUTPUT_S3_URI_PREFIX/doc-reader-outputs/$PROCESSING_TIMESTAMP/${base_name}-${PROCESSING_TIMESTAMP}.md"
   
   echo "Uploading: $md_file -> $s3_destination"
-  aws s3 cp "$md_file" "$s3_destination"
-  MD_FILES_FOUND=$((MD_FILES_FOUND + 1))
+  
+  # Upload with error handling
+  if aws s3 cp "$md_file" "$s3_destination"; then
+    echo "✓ Successfully uploaded: ${base_name}-${PROCESSING_TIMESTAMP}.md"
+    MD_FILES_FOUND=$((MD_FILES_FOUND + 1))
+  else
+    echo "✗ Failed to upload: $md_file"
+    FAILED_UPLOADS=$((FAILED_UPLOADS + 1))
+  fi
 done
 
 # Verify at least one file was processed
@@ -67,7 +84,12 @@ if [ "$MD_COUNT" -eq 0 ]; then
   exit 1
 fi
 
-echo "Successfully uploaded $MD_COUNT markdown files to S3."
+# Check for upload failures
+if [ "$FAILED_UPLOADS" -gt 0 ]; then
+  echo "⚠️  Warning: $FAILED_UPLOADS file(s) failed to upload to S3"
+fi
+
+echo "Successfully uploaded $MD_FILES_FOUND markdown files to S3 in doc-reader-outputs/$PROCESSING_TIMESTAMP/"
 
 # --- Cleanup ---
 echo "--- Cleaning up local directory ---"
