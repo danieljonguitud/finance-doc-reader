@@ -110,62 +110,6 @@ Resources:
           Value: doc-reader
         - Key: Purpose
           Value: event-driven-processing
-  
-  DocReaderEventBridgeRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: DocReaderEventBridgeRole
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: events.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: StepFunctionsInvokePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - states:StartExecution
-                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*"
-
-  DocReaderStartProcessorRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Name: doc-reader-processor-start
-      Description: "Triggers LLM processor when doc-reader uploads markdown files to S3"
-      EventPattern:
-        source:
-          - "aws.s3"
-        detail-type:
-          - "Object Created"
-        detail:
-          bucket:
-            name: 
-              - !ImportValue finance-doc-core-infra-output-bucket
-          object:
-            key:
-              - prefix: "doc-reader-outputs/"
-              - suffix: ".md"
-      State: ENABLED
-      Targets:
-        - Arn: !Ref LlmProcessorStateMachine
-          Id: LlmProcessorTarget
-          RoleArn: !GetAtt EventBridgeStepFunctionsRole.Arn
-          InputTransformer:
-            InputPathsMap:
-              bucket: $.detail.bucket.name
-              key: $.detail.object.key
-            InputTemplate: |
-              {
-                "input_bucket": "<bucket>",
-                "input_key": "<key>",
-                "output_bucket": "<bucket>",
-                "output_key": "llm-processed/<key>-processed.json"
-              }
 
 Outputs:
   EcrRepositoryUri:
@@ -178,9 +122,9 @@ Outputs:
     Description: "The name of the custom event bus for doc-reader events"
     Value: !Ref DocReaderEventBus
     Export:
-      Name: !Sub "${ProjectName}-event-bus-name"
+      Name: doc-reader-event-bus-name
   DocReaderEventBusArn:
     Description: "The ARN of the custom event bus for doc-reader events"
     Value: !GetAtt DocReaderEventBus.Arn
     Export:
-      Name: !Sub "${ProjectName}-event-bus-arn"
+      Name: doc-reader-event-bus-arn

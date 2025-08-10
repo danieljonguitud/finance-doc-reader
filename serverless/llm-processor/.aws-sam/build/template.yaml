@@ -82,6 +82,64 @@ Resources:
         - StepFunctionsExecutionRole
         - Arn
       DefinitionUri: ../../llm-processor-state-machine.yaml
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DocReaderEventBridgeRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: StepFunctionsInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - states:StartExecution
+            Resource:
+              Fn::GetAtt:
+              - LlmProcessorStateMachine
+              - Arn
+  LlmStartProcessorRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: llm-processor-start
+      Description: Triggers LLM processor when doc-reader uploads markdown files to
+        S3
+      EventPattern:
+        source:
+        - aws.s3
+        detail-type:
+        - Object Created
+        detail:
+          bucket:
+            name:
+            - Fn::ImportValue: finance-doc-core-infra-output-bucket
+          object:
+            key:
+            - prefix: doc-reader-outputs/
+            - suffix: .md
+      State: ENABLED
+      Targets:
+      - Arn:
+          Ref: LlmProcessorStateMachine
+        Id: LlmProcessorTarget
+        RoleArn:
+          Fn::GetAtt:
+          - EventBridgeRole
+          - Arn
+        InputTransformer:
+          InputPathsMap:
+            bucket: $.detail.bucket.name
+            key: $.detail.object.key
+          InputTemplate: "{\n  \"input_bucket\": \"<bucket>\",\n  \"input_key\": \"\
+            <key>\",\n  \"output_bucket\": \"<bucket>\",\n  \"output_key\": \"llm-processed/<key>-processed.json\"\
+            \n}\n"
 Outputs:
   StateMachineArn:
     Description: The ARN of the Step Functions State Machine

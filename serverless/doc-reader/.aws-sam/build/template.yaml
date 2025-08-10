@@ -113,6 +113,16 @@ Resources:
               Ref: AWS::Region
             awslogs-stream-prefix: ecs
         Environment: []
+  DocReaderEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: doc-reader
+      Description: Custom event bus for doc-reader service events
+      Tags:
+      - Key: Service
+        Value: doc-reader
+      - Key: Purpose
+        Value: event-driven-processing
 Outputs:
   EcrRepositoryUri:
     Description: The URI of the ECR repository for the doc-reader image
@@ -124,3 +134,17 @@ Outputs:
     Description: The ARN of the ECS Task Definition
     Value:
       Ref: TaskDefinition
+  DocReaderEventBusName:
+    Description: The name of the custom event bus for doc-reader events
+    Value:
+      Ref: DocReaderEventBus
+    Export:
+      Name: doc-reader-event-bus-name
+  DocReaderEventBusArn:
+    Description: The ARN of the custom event bus for doc-reader events
+    Value:
+      Fn::GetAtt:
+      - DocReaderEventBus
+      - Arn
+    Export:
+      Name: doc-reader-event-bus-arn
