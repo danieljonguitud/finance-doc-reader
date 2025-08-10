@@ -13,7 +13,7 @@ States:
     Type: Task
     Arguments:
       Bucket: "{% $inputBucket %}"
-      Key: "{% $.inputKey %}"
+      Key: "{% $inputKey %}"
     Resource: arn:aws:states:::aws-sdk:s3:getObject
     Next: Bedrock InvokeModel
     Retry:
@@ -147,23 +147,17 @@ States:
     Assign:
       processedContent: '{% $parse($states.input.Body.content[0].text) %}'
       inputMetadata:
-        inputBucket: "{% $.inputBucket %}"
-        inputKey: "{% $.inputKey %}"
+        inputBucket: "{% $inputBucket %}"
+        inputKey: "{% $inputKey %}"
         modelId: "anthropic.claude-3-5-haiku-20241022-v1:0"
         timestamp: "{% $now() %}"
-      outputBucket: "{% $.outputBucket %}"
-      outputKey: "{% $.outputKey %}"
   Processing Complete:
     Type: Pass
     End: true
     Assign:
       status: "success"
       message: "Document processed successfully"
-      outputLocation: "{% 's3://' & $.outputBucket & '/' & $.outputKey %}"
+      outputLocation: "{% 's3://' & $outputBucket & '/' & $outputKey %}"
   HandleError:
     Type: Pass
     End: true
-    Assign:
-      status: "error"
-      error: "{% $states.context.error %}"
-      errorMessage: "{% $states.context.errorMessage %}"
