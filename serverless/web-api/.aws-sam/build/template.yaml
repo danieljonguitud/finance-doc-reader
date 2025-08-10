@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Web Api
+Parameters:
+  ProjectName:
+    Type: String
+    Default: web-api
+Resources:
+  ApiGatewayExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-ApiGatewayExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-S3AccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+              Fn::Sub:
+              - arn:aws:s3:::${InputBucket}/*
+              - InputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-input-bucket
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/apigateway/${ProjectName}
+      RetentionInDays: 30
+  WebApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}
+      Description: Versioned API for document upload with direct S3 integration
+      BinaryMediaTypes:
+      - multipart/form-data
+      - application/pdf
+      - application/octet-stream
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn:
+        Fn::GetAtt:
+        - ApiGatewayCloudWatchRole
+        - Arn
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  V1Resource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ParentId:
+        Fn::GetAtt:
+        - WebApi
+        - RootResourceId
+      PathPart: v1
+  DocumentsEndpoint:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        ApiGatewayExecutionRoleArn:
+          Fn::GetAtt:
+          - ApiGatewayExecutionRole
+          - Arn
+        WebApi:
+          Ref: WebApi
+        V1Resource:
+          Ref: V1Resource
+      Location: DocumentsEndpoint/template.yaml
+    Metadata:
+      SamResourceId: DocumentsEndpoint
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+    - DocumentsEndpoint
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      Description: Initial deployment of web-api
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      DeploymentId:
+        Ref: ApiDeployment
+      StageName: prod
+      Description: Production stage for web-api
+      Variables:
+        inputBucket:
+          Fn::ImportValue: finance-doc-core-infra-input-bucket
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        LoggingLevel: INFO
+        DataTraceEnabled: true
+        MetricsEnabled: true
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - ApiGatewayLogGroup
+          - Arn
+        Format: '{"requestId": "$context.requestId", "requestTime": "$context.requestTime",
+          "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath",
+          "status": "$context.status", "error.message": "$context.error.message",
+          "error.messageString": "$context.error.messageString"}'
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName:
+        Fn::Sub: ${ProjectName}-usage-plan
+      Description: Usage plan for web-api
+      ApiStages:
+      - ApiId:
+          Ref: WebApi
+        Stage:
+          Ref: ApiStage
+      Throttle:
+        RateLimit: 100
+        BurstLimit: 200
+      Quota:
+        Limit: 10000
+        Period: DAY
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-key
+      Description: API key for web-api access
+      Enabled: true
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId:
+        Ref: ApiKey
+      KeyType: API_KEY
+      UsagePlanId:
+        Ref: ApiUsagePlan
+Outputs:
+  ApiUrl:
+    Description: URL of the API Gateway
+    Value:
+      Fn::Sub: https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-api-url
+  ApiId:
+    Description: ID of the API Gateway
+    Value:
+      Ref: WebApi
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-api-id
+  ApiKeyId:
+    Description: ID of the API Key
+    Value:
+      Ref: ApiKey
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-api-key-id

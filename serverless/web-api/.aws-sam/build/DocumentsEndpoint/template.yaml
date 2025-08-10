@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Documents API endpoint
+Parameters:
+  ProjectName:
+    Type: String
+  ApiGatewayExecutionRoleArn:
+    Type: String
+  WebApi:
+    Type: String
+  V1Resource:
+    Type: String
+Resources:
+  DocumentsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ParentId:
+        Ref: V1Resource
+      PathPart: documents
+  DocumentsPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ResourceId:
+        Ref: DocumentsResource
+      HttpMethod: POST
+      AuthorizationType: AWS_IAM
+      RequestParameters:
+        method.request.header.Content-Type: false
+        method.request.header.x-amz-meta-filename: false
+        method.request.header.x-amz-meta-template: false
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: PUT
+        Uri:
+          Fn::Sub:
+          - arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/uploads/{timestamp}-{filename}
+          - InputBucket:
+              Fn::ImportValue: finance-doc-core-infra-input-bucket
+        Credentials:
+          Ref: ApiGatewayExecutionRoleArn
+        RequestParameters:
+          integration.request.path.timestamp: context.requestTimeEpoch
+          integration.request.path.filename: method.request.header.x-amz-meta-filename
+          integration.request.header.x-amz-meta-template: method.request.header.x-amz-meta-template
+          integration.request.header.x-amz-meta-upload-id: context.requestId
+          integration.request.header.Content-Type: method.request.header.Content-Type
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/octet-stream: $input.body
+          multipart/form-data: $input.body
+          application/pdf: $input.body
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "#set($timestamp = $context.requestTimeEpoch)\n#set($filename\
+              \ = $input.params('x-amz-meta-filename'))\n{\n  \"s3Key\": \"uploads/$timestamp-$filename\"\
+              ,\n  \"bucket\": \"$stageVariables.inputBucket\",\n  \"status\": \"\
+              uploaded\",\n  \"timestamp\": \"$context.requestTime\"\n}\n"
+        - StatusCode: 400
+          SelectionPattern: 4\d{2}
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
+              Invalid file upload request\"\n}\n"
+        - StatusCode: 500
+          SelectionPattern: 5\d{2}
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "{\n  \"error\": \"Internal Server Error\",\n  \"message\"\
+              : \"Failed to upload file to S3\"\n}\n"
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+      - StatusCode: 400
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+      - StatusCode: 500
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+  DocumentsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ResourceId:
+        Ref: DocumentsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,x-amz-meta-filename,x-amz-meta-template'''
+            method.response.header.Access-Control-Allow-Methods: '''POST,OPTIONS'''
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Headers: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Origin: true
+Outputs:
+  DocumentsEndpoint:
+    Description: Full URL for documents upload endpoint
+    Value:
+      Fn::Sub: https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/prod/v1/documents/
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-documents-endpoint
