@@ -7,6 +7,22 @@ Parameters:
   ProjectName:
     Type: String
     Default: finance-doc-core-infra
+  DatabaseName:
+    Type: String
+    Default: finance_docs
+    Description: Name of the PostgreSQL database
+  MinCapacity:
+    Type: Number
+    Default: 0.5
+    Description: Minimum Aurora Serverless v2 capacity units
+    MinValue: 0.5
+    MaxValue: 128
+  MaxCapacity:
+    Type: Number
+    Default: 2.0
+    Description: Maximum Aurora Serverless v2 capacity units
+    MinValue: 0.5
+    MaxValue: 128
 Resources:
   InputBucket:
     Type: AWS::S3::Bucket
@@ -33,6 +49,47 @@ Resources:
     Properties:
       ClusterName:
         Fn::Sub: ${ProjectName}-cluster
+  DocReaderEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: doc-reader
+      Description: Custom event bus for doc-reader service events
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier:
+        Fn::Sub: ${ProjectName}-postgres-cluster
+      Engine: aurora-postgresql
+      EngineVersion: 16.6
+      DatabaseName:
+        Ref: DatabaseName
+      MasterUsername: finance_docs
+      ManageMasterUserPassword: true
+      EnableHttpEndpoint: true
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 16
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: sun:04:00-sun:05:00
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${ProjectName}-postgres-cluster
+  AuroraInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier:
+        Fn::Sub: ${ProjectName}-postgres-instance
+      DBClusterIdentifier:
+        Ref: AuroraCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${ProjectName}-postgres-instance
 Outputs:
   EcsClusterName:
     Description: The name of the ECS Cluster
@@ -55,3 +112,42 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${ProjectName}-output-bucket
+  DocReaderEventBusName:
+    Description: Name of the Doc Reader event bus
+    Value:
+      Ref: DocReaderEventBus
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-doc-reader-event-bus-name
+  AuroraClusterArn:
+    Description: ARN of the Aurora PostgreSQL cluster for Data API access
+    Value:
+      Fn::Sub: arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-aurora-cluster-arn
+  AuroraClusterEndpoint:
+    Description: Aurora cluster endpoint
+    Value:
+      Fn::GetAtt:
+      - AuroraCluster
+      - Endpoint.Address
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-aurora-cluster-endpoint
+  DatabaseSecretArn:
+    Description: ARN of the database master user secret
+    Value:
+      Fn::GetAtt:
+      - AuroraCluster
+      - MasterUserSecret.SecretArn
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-database-secret-arn
+  DatabaseName:
+    Description: Name of the PostgreSQL database
+    Value:
+      Ref: DatabaseName
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-database-name
