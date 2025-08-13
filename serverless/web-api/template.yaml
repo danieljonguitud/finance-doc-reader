@@ -36,17 +36,14 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/aws/apigateway/${ProjectName}"
-      RetentionInDays: 30
+      RetentionInDays: 3
 
   WebApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Sub "${ProjectName}"
-      Description: "Versioned API for document upload with direct S3 integration"
       BinaryMediaTypes:
-        - "multipart/form-data"
-        - "application/pdf"
-        - "application/octet-stream"
+        - application/pdf
 
   ApiGatewayAccount:
     Type: AWS::ApiGateway::Account
@@ -96,8 +93,8 @@ Resources:
     Properties:
       RestApiId: !Ref WebApi
       DeploymentId: !Ref ApiDeployment
-      StageName: prod
-      Description: "Production stage for web-api"
+      StageName: dev
+      Description: Stage for web-api
       Variables:
         inputBucket: !ImportValue finance-doc-core-infra-input-bucket
       MethodSettings:
@@ -119,10 +116,10 @@ Resources:
         - ApiId: !Ref WebApi
           Stage: !Ref ApiStage
       Throttle:
-        RateLimit: 100
-        BurstLimit: 200
+        RateLimit: 10
+        BurstLimit: 20
       Quota:
-        Limit: 10000
+        Limit: 50
         Period: DAY
 
   ApiKey:

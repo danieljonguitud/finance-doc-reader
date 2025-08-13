@@ -45,13 +45,11 @@ Resources:
         RequestParameters:
           integration.request.path.timestamp: context.requestTimeEpoch
           integration.request.path.filename: method.request.header.x-file-name
-          integration.request.paht.requestId: context.requestId
+          integration.request.path.requestId: context.requestId
           integration.request.header.Content-Type: method.request.header.Content-Type
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/octet-stream: $input.body
-          multipart/form-data: $input.body
-          application/pdf: $input.body
+          application/pdf: ''
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:

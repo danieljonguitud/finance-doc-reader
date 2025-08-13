@@ -26,29 +26,26 @@ Resources:
       RestApiId: !Ref WebApi
       ResourceId: !Ref DocumentsResource
       HttpMethod: POST
-      AuthorizationType: AWS_IAM
+      AuthorizationType: NONE
+      ApiKeyRequired: true
       RequestParameters:
-        method.request.header.Content-Type: false
-        method.request.header.x-amz-meta-filename: false
-        method.request.header.x-amz-meta-template: false
+        method.request.header.Content-Type: true
+        method.request.header.x-file-name: true
       Integration:
         Type: AWS
         IntegrationHttpMethod: PUT
         Uri: !Sub
-          - "arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/uploads/{timestamp}-{filename}"
+          - "arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/userId/documents/{requestId}_{timestamp}/{filename}.pdf"
           - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
         Credentials: !Ref ApiGatewayExecutionRoleArn
         RequestParameters:
           integration.request.path.timestamp: "context.requestTimeEpoch"
-          integration.request.path.filename: "method.request.header.x-amz-meta-filename"
-          integration.request.header.x-amz-meta-template: "method.request.header.x-amz-meta-template"
-          integration.request.header.x-amz-meta-upload-id: "context.requestId"
+          integration.request.path.filename: "method.request.header.x-file-name"
+          integration.request.path.requestId: "context.requestId"
           integration.request.header.Content-Type: "method.request.header.Content-Type"
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
-          application/octet-stream: "$input.body"
-          multipart/form-data: "$input.body"
-          application/pdf: "$input.body"
+          application/pdf: ""
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
@@ -56,12 +53,12 @@ Resources:
             ResponseTemplates:
               application/json: |
                 #set($timestamp = $context.requestTimeEpoch)
-                #set($filename = $input.params('x-amz-meta-filename'))
+                #set($requestId = $context.requestId)
+                #set($fileExt = ".pdf")
+                #set($filename = $input.params('x-file-name'))
                 {
-                  "s3Key": "uploads/$timestamp-$filename",
+                  "s3Key": "userId/documents/$requestId_$timestamp/$filename$fileExt",
                   "bucket": "$stageVariables.inputBucket",
-                  "status": "uploaded",
-                  "timestamp": "$context.requestTime"
                 }
           - StatusCode: 400
             SelectionPattern: "4\\d{2}"
