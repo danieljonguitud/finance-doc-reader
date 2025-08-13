@@ -35,15 +35,10 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
+                  - s3:PutObject
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
                   - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                Resource: !Sub
-                  - "arn:aws:s3:::${OutputBucket}/*"
-                  - OutputBucket: !ImportValue finance-doc-core-infra-output-bucket
 
   EcrRepository:
     Type: AWS::ECR::Repository
@@ -111,6 +106,11 @@ Resources:
         - Key: Purpose
           Value: event-driven-processing
 
+  DocumentProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-document-processing-dlq"
+
   EventBridgeEcsTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -137,6 +137,10 @@ Resources:
                 Resource:
                   - !GetAtt TaskRole.Arn
                   - !GetAtt TaskExecutionRole.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt DocumentProcessingDLQ.Arn
 
   DocumentUploadEventRule:
     Type: AWS::Events::Rule
@@ -163,6 +167,8 @@ Resources:
             - "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}"
             - ClusterName: !ImportValue finance-doc-core-infra-ecs-cluster
           RoleArn: !GetAtt EventBridgeEcsTaskRole.Arn
+          DeadLetterConfig:
+            Arn: !GetAtt DocumentProcessingDLQ.Arn
           EcsParameters:
             TaskDefinitionArn: !Ref TaskDefinition
             LaunchType: FARGATE
@@ -170,25 +176,25 @@ Resources:
               AwsVpcConfiguration:
                 AssignPublicIp: ENABLED
                 Subnets:
-                  - subnet-0123456789abcdef0  # Replace with actual subnet
+                  - subnet-0e6226143b6413cbe # Replace with actual subnet
             TaskCount: 1
           InputTransformer:
             InputPathsMap:
               bucket: "$.detail.bucket.name"
               s3Key: "$.detail.object.key"
-            InputTemplate: |
+            InputTemplate: !Sub |
               {
                 "containerOverrides": [
                   {
-                    "name": "doc-reader",
+                    "name": "${ProjectName}",
                     "environment": [
                       {
-                        "name": "INPUT_S3_URI",
-                        "value": "s3://<bucket>/<s3Key>"
+                        "name": "INPUT_S3_BUCKET",
+                        "value": "<bucket>/<s3Key>"
                       },
                       {
                         "name": "OUTPUT_S3_URI_PREFIX",
-                        "value": "s3://finance-doc-core-infra-output-bucket-${AWS::AccountId}-${AWS::Region}/doc-reader-outputs/<s3Key>"
+                        "value": "<bucket>/<s3Key>"
                       }
                     ]
                   }
@@ -212,3 +218,13 @@ Outputs:
     Value: !GetAtt DocReaderEventBus.Arn
     Export:
       Name: doc-reader-event-bus-arn
+  DocumentProcessingDLQUrl:
+    Description: "URL of the Dead Letter Queue for failed document processing events"
+    Value: !Ref DocumentProcessingDLQ
+    Export:
+      Name: !Sub "${ProjectName}-dlq-url"
+  DocumentProcessingDLQArn:
+    Description: "ARN of the Dead Letter Queue for failed document processing events"  
+    Value: !GetAtt DocumentProcessingDLQ.Arn
+    Export:
+      Name: !Sub "${ProjectName}-dlq-arn"

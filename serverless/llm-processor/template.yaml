@@ -105,11 +105,11 @@ Resources:
           - "Object Created"
         detail:
           bucket:
-            name: 
-              - !ImportValue finance-doc-core-infra-output-bucket
+            name:
+              - !ImportValue finance-doc-core-infra-input-bucket
           object:
             key:
-              - prefix: "doc-reader-outputs/"
+              - prefix: "userId/documents/"
               - suffix: ".md"
       State: ENABLED
       Targets:

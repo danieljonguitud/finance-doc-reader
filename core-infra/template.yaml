@@ -19,7 +19,7 @@ Parameters:
     MaxValue: 128
   MaxCapacity:
     Type: Number
-    Default: 2.0
+    Default: 1.0
     Description: Maximum Aurora Serverless v2 capacity units
     MinValue: 0.5
     MaxValue: 128 
@@ -53,13 +53,6 @@ Resources:
     Properties:
       ClusterName: !Sub "${ProjectName}-cluster"
   
-  DocReaderEventBus:
-    Type: AWS::Events::EventBus
-    Properties:
-      Name: doc-reader
-      Description: "Custom event bus for doc-reader service events"
-
-  # Aurora Serverless v2 PostgreSQL Cluster
   AuroraCluster:
     Type: AWS::RDS::DBCluster
     Properties:
@@ -71,17 +64,13 @@ Resources:
       ManageMasterUserPassword: true
       EnableHttpEndpoint: true
       ServerlessV2ScalingConfiguration:
-        MinCapacity: 0.5
-        MaxCapacity: 16
-      BackupRetentionPeriod: 1
+        MinCapacity: !Ref MinCapacity
+        MaxCapacity: !Ref MaxCapacity
       DeletionProtection: false
-      PreferredBackupWindow: "03:00-04:00"
-      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-postgres-cluster"
 
-  # Aurora Serverless v2 Database Instance
   AuroraInstance:
     Type: AWS::RDS::DBInstance
     Properties:
@@ -99,21 +88,18 @@ Outputs:
     Value: !Ref EcsCluster
     Export:
       Name: !Sub '${ProjectName}-ecs-cluster'
+
   InputBucketName:
     Description: "Name of the S3 bucket for input files"
     Value: !Ref InputBucket
     Export:
       Name: !Sub '${ProjectName}-input-bucket'
+
   OutputBucketName:
     Description: "Name of the S3 bucket for output files"
     Value: !Ref InputBucket
     Export:
       Name: !Sub '${ProjectName}-output-bucket'
-  DocReaderEventBusName:
-    Description: "Name of the Doc Reader event bus"
-    Value: !Ref DocReaderEventBus
-    Export:
-      Name: !Sub '${ProjectName}-doc-reader-event-bus-name'
   
   AuroraClusterArn:
     Description: "ARN of the Aurora PostgreSQL cluster for Data API access"
