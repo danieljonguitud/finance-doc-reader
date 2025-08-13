@@ -111,6 +111,90 @@ Resources:
         - Key: Purpose
           Value: event-driven-processing
 
+  EventBridgeEcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-EventBridgeEcsTaskRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: RunEcsTaskPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                Resource: !Ref TaskDefinition
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt TaskRole.Arn
+                  - !GetAtt TaskExecutionRole.Arn
+
+  DocumentUploadEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-DocumentUploadRule"
+      Description: "Trigger doc-reader ECS task when PDFs are uploaded to input bucket"
+      EventPattern:
+        source:
+          - "aws.s3"
+        detail-type:
+          - "Object Created"
+        detail:
+          bucket:
+            name:
+              - !ImportValue finance-doc-core-infra-input-bucket
+          object:
+            key:
+              - prefix: "userId/documents/"
+              - suffix: ".pdf"
+      State: ENABLED
+      Targets:
+        - Id: "DocReaderEcsTaskTarget"
+          Arn: !Sub
+            - "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}"
+            - ClusterName: !ImportValue finance-doc-core-infra-ecs-cluster
+          RoleArn: !GetAtt EventBridgeEcsTaskRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref TaskDefinition
+            LaunchType: FARGATE
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                AssignPublicIp: ENABLED
+                Subnets:
+                  - subnet-0123456789abcdef0  # Replace with actual subnet
+            TaskCount: 1
+          InputTransformer:
+            InputPathsMap:
+              bucket: "$.detail.bucket.name"
+              s3Key: "$.detail.object.key"
+            InputTemplate: |
+              {
+                "containerOverrides": [
+                  {
+                    "name": "doc-reader",
+                    "environment": [
+                      {
+                        "name": "INPUT_S3_URI",
+                        "value": "s3://<bucket>/<s3Key>"
+                      },
+                      {
+                        "name": "OUTPUT_S3_URI_PREFIX",
+                        "value": "s3://finance-doc-core-infra-output-bucket-${AWS::AccountId}-${AWS::Region}/doc-reader-outputs/<s3Key>"
+                      }
+                    ]
+                  }
+                ]
+              }
+
 Outputs:
   EcrRepositoryUri:
     Description: "The URI of the ECR repository for the doc-reader image"
