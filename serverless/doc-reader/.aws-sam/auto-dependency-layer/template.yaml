@@ -212,10 +212,9 @@ Resources:
             s3Key: $.detail.object.key
           InputTemplate:
             Fn::Sub: "{\n  \"containerOverrides\": [\n    {\n      \"name\": \"${ProjectName}\"\
-              ,\n      \"environment\": [\n        {\n          \"name\": \"INPUT_S3_BUCKET\"\
-              ,\n          \"value\": \"<bucket>/<s3Key>\"\n        },\n        {\n\
-              \          \"name\": \"OUTPUT_S3_URI_PREFIX\",\n          \"value\"\
-              : \"<bucket>/<s3Key>\"\n        }\n      ]\n    }\n  ]\n}\n"
+              ,\n      \"environment\": [\n        {\n          \"name\": \"S3_URI\"\
+              ,\n          \"value\": \"s3://<bucket>/<s3Key>\"\n        }\n     \
+              \ ]\n    }\n  ]\n}\n"
 Outputs:
   EcrRepositoryUri:
     Description: The URI of the ECR repository for the doc-reader image

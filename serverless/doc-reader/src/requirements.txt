@@ -7,5 +7,8 @@ torchvision>=0.15.0
 boto3>=1.34.0
 botocore>=1.34.0
 
+# System monitoring for memory tracking
+psutil>=5.9.0
+
 # For better performance and compatibility
 onnxruntime>=1.15.0

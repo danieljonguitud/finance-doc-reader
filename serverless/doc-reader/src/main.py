@@ -12,6 +12,8 @@ import sys
 import json
 import logging
 import io
+import psutil
+import gc
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import traceback
@@ -34,8 +36,9 @@ class DocumentProcessor:
         self.logger = logging.getLogger(__name__)
         
         # Environment configuration
+        self.s3_uri = None
         self.input_s3_bucket = None
-        self.output_s3_uri_prefix = None
+        self.input_s3_key = None
         self.processing_timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
         
         # AWS clients
@@ -85,6 +88,29 @@ class DocumentProcessor:
         else:
             self.logger.info(json.dumps(log_data))
     
+    def log_memory_usage(self, context: str):
+        """Log current memory usage for monitoring."""
+        try:
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            memory_mb = memory_info.rss / 1024 / 1024
+            
+            # Get system memory if available
+            try:
+                system_memory = psutil.virtual_memory()
+                available_mb = system_memory.available / 1024 / 1024
+                total_mb = system_memory.total / 1024 / 1024
+            except:
+                available_mb = None
+                total_mb = None
+            
+            self.log_structured('INFO', f'Memory usage - {context}', 
+                              memory_mb=round(memory_mb, 2),
+                              available_mb=round(available_mb, 2) if available_mb else None,
+                              total_mb=round(total_mb, 2) if total_mb else None)
+        except Exception as e:
+            self.log_structured('WARNING', 'Failed to get memory usage', error=str(e))
+    
     def validate_environment(self) -> bool:
         """
         Validate required environment variables and initialize clients.
@@ -93,17 +119,38 @@ class DocumentProcessor:
             bool: True if validation passes, False otherwise
         """
         self.log_structured('INFO', 'Starting environment validation')
+        self.log_memory_usage('startup')
         
         # Check required environment variables
-        self.input_s3_bucket = os.getenv('INPUT_S3_BUCKET')
-        self.output_s3_uri_prefix = os.getenv('OUTPUT_S3_URI_PREFIX')
+        self.s3_uri = os.getenv('S3_URI')
         
-        if not self.input_s3_bucket:
-            self.log_structured('ERROR', 'INPUT_S3_BUCKET environment variable not set')
+        if not self.s3_uri:
+            self.log_structured('ERROR', 'S3_URI environment variable not set')
             return False
+        
+        # Parse S3 URI to extract bucket and key
+        try:
+            if not self.s3_uri.startswith('s3://'):
+                self.log_structured('ERROR', 'S3_URI must start with s3://', s3_uri=self.s3_uri)
+                return False
             
-        if not self.output_s3_uri_prefix:
-            self.log_structured('ERROR', 'OUTPUT_S3_URI_PREFIX environment variable not set')
+            # Remove s3:// prefix and split into bucket and key
+            s3_path = self.s3_uri[5:]  # Remove 's3://'
+            parts = s3_path.split('/', 1)
+            
+            if len(parts) != 2:
+                self.log_structured('ERROR', 'Invalid S3_URI format, expected s3://bucket/key', s3_uri=self.s3_uri)
+                return False
+                
+            self.input_s3_bucket = parts[0]
+            self.input_s3_key = parts[1]
+            
+            self.log_structured('INFO', 'S3 URI parsed successfully',
+                              bucket=self.input_s3_bucket,
+                              key=self.input_s3_key)
+            
+        except Exception as e:
+            self.log_structured('ERROR', 'Failed to parse S3_URI', s3_uri=self.s3_uri, error=str(e))
             return False
         
         # Initialize AWS clients
@@ -135,6 +182,7 @@ class DocumentProcessor:
             )
             
             self.log_structured('INFO', 'Marker PDF converter initialized successfully')
+            self.log_memory_usage('after_model_loading')
             
         except Exception as e:
             self.log_structured('ERROR', 'Failed to initialize marker PDF converter', 
@@ -142,130 +190,140 @@ class DocumentProcessor:
             return False
         
         self.log_structured('INFO', 'Environment validation completed successfully',
+                          s3_uri=self.s3_uri,
                           input_bucket=self.input_s3_bucket,
-                          output_prefix=self.output_s3_uri_prefix)
+                          input_key=self.input_s3_key)
         return True
     
-    def list_pdf_objects_in_s3(self) -> List[Dict]:
+    def validate_pdf_file(self) -> bool:
         """
-        List all PDF objects in the S3 input bucket.
+        Validate that the specified S3 object exists and is a PDF file.
         
         Returns:
-            List[Dict]: List of S3 object metadata for PDF files
+            bool: True if valid PDF file exists, False otherwise
         """
-        self.log_structured('INFO', 'Listing PDF objects in S3', bucket=self.input_s3_bucket)
-        
-        pdf_objects = []
-        
         try:
-            # List all objects in the bucket with .pdf extension
-            paginator = self.s3_client.get_paginator('list_objects_v2')
-            page_iterator = paginator.paginate(Bucket=self.input_s3_bucket)
+            # Check if the file exists and get metadata
+            response = self.s3_client.head_object(Bucket=self.input_s3_bucket, Key=self.input_s3_key)
             
-            for page in page_iterator:
-                if 'Contents' in page:
-                    for obj in page['Contents']:
-                        if obj['Key'].lower().endswith('.pdf'):
-                            pdf_objects.append(obj)
+            # Validate it's a PDF file
+            if not self.input_s3_key.lower().endswith('.pdf'):
+                self.log_structured('ERROR', 'File is not a PDF', s3_key=self.input_s3_key)
+                return False
             
-            self.stats['pdfs_found'] = len(pdf_objects)
+            file_size = response.get('ContentLength', 0)
+            self.log_structured('INFO', 'PDF file validated successfully', 
+                              s3_key=self.input_s3_key,
+                              file_size_bytes=file_size,
+                              file_size_mb=round(file_size / (1024 * 1024), 2))
             
-            if not pdf_objects:
-                self.log_structured('WARNING', 'No PDF files found in S3 bucket')
+            self.stats['pdfs_found'] = 1
+            return True
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                self.log_structured('ERROR', 'PDF file not found in S3', s3_key=self.input_s3_key)
             else:
-                self.log_structured('INFO', f'Found {len(pdf_objects)} PDF files in S3')
-            
-            return pdf_objects
-            
+                self.log_structured('ERROR', 'Failed to validate PDF file', 
+                                  s3_key=self.input_s3_key, error=str(e))
+            return False
         except Exception as e:
-            self.log_structured('ERROR', 'Failed to list PDF objects in S3', error=str(e))
-            return []
+            self.log_structured('ERROR', 'Unexpected error validating PDF file', 
+                              s3_key=self.input_s3_key, error=str(e))
+            return False
     
-    def download_and_process_pdf(self, s3_key: str) -> Optional[Tuple[str, Dict]]:
+    def download_and_process_pdf(self) -> Optional[Tuple[str, Dict]]:
         """
         Download PDF from S3 to memory and process it with marker in one operation.
-        
-        Args:
-            s3_key: S3 object key for the PDF file
             
         Returns:
             Tuple of (markdown_content, metadata) or None if failed
         """
         try:
-            self.log_structured('INFO', 'Processing PDF from S3', s3_key=s3_key)
+            self.log_structured('INFO', 'Processing PDF from S3', s3_key=self.input_s3_key)
             
             # Download PDF directly to memory
-            pdf_obj = self.s3_client.get_object(Bucket=self.input_s3_bucket, Key=s3_key)
+            pdf_obj = self.s3_client.get_object(Bucket=self.input_s3_bucket, Key=self.input_s3_key)
             pdf_bytes = pdf_obj['Body'].read()
             
             # Log file size for monitoring
             file_size_mb = len(pdf_bytes) / (1024 * 1024)
             self.log_structured('INFO', 'PDF downloaded to memory', 
-                              s3_key=s3_key, 
+                              s3_key=self.input_s3_key, 
                               size_mb=round(file_size_mb, 2))
+            self.log_memory_usage('after_pdf_download')
             
             # Create BytesIO buffer for marker processing
             pdf_buffer = io.BytesIO(pdf_bytes)
             
             # Process with marker converter
+            self.log_memory_usage('before_processing')
             result = self.pdf_converter(pdf_buffer)
+            self.log_memory_usage('after_processing')
             
             # Clean up the buffer
             pdf_buffer.close()
             del pdf_bytes  # Explicitly free memory
+            gc.collect()  # Force garbage collection
+            self.log_memory_usage('after_cleanup')
             
             if hasattr(result, 'markdown') and result.markdown:
                 markdown_content = result.markdown
                 metadata = getattr(result, 'metadata', {})
                 
                 self.log_structured('INFO', 'PDF processed successfully', 
-                                  s3_key=s3_key,
+                                  s3_key=self.input_s3_key,
                                   markdown_length=len(markdown_content))
                 
                 self.stats['pdfs_processed'] += 1
                 return markdown_content, metadata
             else:
-                self.log_structured('ERROR', 'No markdown content generated', s3_key=s3_key)
+                self.log_structured('ERROR', 'No markdown content generated', s3_key=self.input_s3_key)
                 self.stats['failed_conversions'] += 1
                 return None
                 
         except ClientError as e:
             self.log_structured('ERROR', 'Failed to download PDF from S3', 
-                              s3_key=s3_key, 
+                              s3_key=self.input_s3_key, 
                               error=str(e))
             self.stats['failed_conversions'] += 1
             return None
             
         except Exception as e:
             self.log_structured('ERROR', 'Failed to process PDF', 
-                              s3_key=s3_key, 
+                              s3_key=self.input_s3_key, 
                               error=str(e),
                               traceback=traceback.format_exc())
             self.stats['failed_conversions'] += 1
             return None
     
-    def upload_markdown_to_s3(self, markdown_content: str, s3_key: str, metadata: Dict = None) -> bool:
+    def upload_markdown_to_s3(self, markdown_content: str, metadata: Dict = None) -> bool:
         """
-        Upload markdown content directly to S3 with timestamped naming.
+        Upload markdown content to the same folder as the source PDF.
         
         Args:
             markdown_content: The markdown text to upload
-            s3_key: Original S3 key for the PDF file  
             metadata: Optional metadata from marker processing
             
         Returns:
             bool: True if upload successful, False otherwise
         """
         try:
-            # Extract filename from S3 key and create timestamped output path
-            original_filename = s3_key.split('/')[-1]  # Get filename from S3 key
+            # Extract filename and folder from the input S3 key
+            original_filename = self.input_s3_key.split('/')[-1]  # Get filename from S3 key
             base_name = original_filename.rsplit('.', 1)[0]  # Remove .pdf extension
-            output_key = f"doc-reader-outputs/{self.processing_timestamp}/{base_name}-{self.processing_timestamp}.md"
+            
+            # Get the folder path (everything except the filename)
+            folder_path = '/'.join(self.input_s3_key.split('/')[:-1])
+            
+            # Create output key in the same folder
+            output_key = f"{folder_path}/{base_name}.md"
             
             # Prepare metadata for S3 object
             s3_metadata = {
                 'processing-timestamp': self.processing_timestamp,
-                'original-s3-key': s3_key,
+                'original-s3-key': self.input_s3_key,
                 'original-filename': original_filename,
                 'content-type': 'text/markdown'
             }
@@ -276,11 +334,8 @@ class DocumentProcessor:
                     if isinstance(value, (str, int, float)):
                         s3_metadata[f'marker-{key}'] = str(value)
             
-            # Determine output bucket - extract from output_s3_uri_prefix
-            if '/' in self.output_s3_uri_prefix:
-                output_bucket = self.output_s3_uri_prefix.split('/', 1)[0]
-            else:
-                output_bucket = self.output_s3_uri_prefix
+            # Use the same bucket as input
+            output_bucket = self.input_s3_bucket
             
             self.log_structured('INFO', 'Uploading markdown to S3', 
                               output_bucket=output_bucket,
@@ -317,38 +372,33 @@ class DocumentProcessor:
         Returns:
             bool: True if processing completed successfully, False otherwise
         """
-        self.log_structured('INFO', 'Document processing started (in-memory mode)')
+        self.log_structured('INFO', 'Document processing started (single file mode)')
         
         try:
             # Step 1: Validate environment and initialize clients
             if not self.validate_environment():
                 return False
             
-            # Step 2: List PDF objects in S3
-            pdf_objects = self.list_pdf_objects_in_s3()
-            if not pdf_objects:
-                self.log_structured('ERROR', 'No PDF files found to process')
+            # Step 2: Validate the specified PDF file
+            if not self.validate_pdf_file():
+                self.log_structured('ERROR', 'PDF file validation failed')
                 return False
             
-            # Step 3: Process each PDF file in memory
-            self.log_structured('INFO', 'Starting in-memory PDF processing', 
-                              pdf_count=len(pdf_objects))
+            # Step 3: Process the single PDF file
+            self.log_structured('INFO', 'Starting PDF processing', 
+                              s3_key=self.input_s3_key)
             
-            for pdf_obj in pdf_objects:
-                s3_key = pdf_obj['Key']
+            # Process PDF directly from S3 to markdown
+            result = self.download_and_process_pdf()
+            
+            if result:
+                markdown_content, metadata = result
                 
-                # Process PDF directly from S3 to markdown
-                result = self.download_and_process_pdf(s3_key)
-                
-                if result:
-                    markdown_content, metadata = result
-                    
-                    # Upload markdown to S3
-                    self.upload_markdown_to_s3(
-                        markdown_content, 
-                        s3_key, 
-                        metadata
-                    )
+                # Upload markdown to S3 (same folder as PDF)
+                self.upload_markdown_to_s3(markdown_content, metadata)
+            else:
+                self.log_structured('ERROR', 'Failed to process PDF file')
+                return False
             
             # Step 4: Log final statistics
             self.log_structured('INFO', 'Document processing completed', 

@@ -3,15 +3,34 @@ set -e # Exit immediately if a command exits with a non-zero status.
 set -o pipefail # The return value of a pipeline is the status of the last command to exit with a non-zero status
 
 # --- Sanity Checks ---
-if [ -z "$INPUT_S3_BUCKET" ]; then
-  echo "Error: INPUT_S3_BUCKET environment variable not set."
+if [ -z "$S3_URI" ]; then
+  echo "Error: S3_URI environment variable not set."
   exit 1
 fi
 
-if [ -z "$OUTPUT_S3_URI_PREFIX" ]; then
-  echo "Error: OUTPUT_S3_URI_PREFIX environment variable not set."
+# Validate S3_URI format
+if [[ ! "$S3_URI" =~ ^s3:// ]]; then
+  echo "Error: S3_URI must start with s3://"
+  echo "Provided: $S3_URI"
   exit 1
 fi
+
+# --- Parse S3_URI ---
+echo "--- Parsing S3_URI ---"
+echo "S3_URI: $S3_URI"
+
+# Extract bucket name (everything between s3:// and first /)
+S3_BUCKET=$(echo "$S3_URI" | sed 's|s3://||' | cut -d'/' -f1)
+
+# Extract full S3 key (everything after bucket/)
+S3_KEY=$(echo "$S3_URI" | sed 's|s3://[^/]*/||')
+
+# Extract folder path (everything except the filename)
+FOLDER_PATH=$(dirname "$S3_KEY")
+
+echo "S3 Bucket: $S3_BUCKET"
+echo "S3 Key: $S3_KEY"
+echo "Folder Path: $FOLDER_PATH"
 
 # --- Setup Local Environment ---
 echo "--- Setting up local environment ---"
@@ -26,16 +45,16 @@ echo "Processing timestamp: $PROCESSING_TIMESTAMP"
 echo "Local processing directory: $LOCAL_PROCESSING_DIR"
 echo "Local output directory: $LOCAL_OUTPUT_DIR"
 
-# --- Download All PDF Files from S3 ---
-echo "--- Downloading all PDF files from S3 bucket ---"
-echo "Source bucket: s3://$INPUT_S3_BUCKET/"
+# --- Download All PDF Files from S3 Folder ---
+echo "--- Downloading all PDF files from S3 folder ---"
+echo "Source folder: s3://$S3_BUCKET/$FOLDER_PATH/"
 echo "Destination: $LOCAL_PROCESSING_DIR"
-aws s3 sync "s3://$INPUT_S3_BUCKET/" "$LOCAL_PROCESSING_DIR" --exclude "*" --include "*.pdf"
+aws s3 sync "s3://$S3_BUCKET/$FOLDER_PATH/" "$LOCAL_PROCESSING_DIR" --exclude "*" --include "*.pdf"
 
 # Count PDFs found
 PDF_COUNT=$(find "$LOCAL_PROCESSING_DIR" -name "*.pdf" -type f | wc -l)
 if [ "$PDF_COUNT" -eq 0 ]; then
-  echo "Error: No PDF files found in S3 bucket."
+  echo "Error: No PDF files found in S3 folder: s3://$S3_BUCKET/$FOLDER_PATH/"
   exit 1
 fi
 echo "Download complete. Found $PDF_COUNT PDF files to process."
@@ -54,19 +73,17 @@ MD_FILES_FOUND=0
 FAILED_UPLOADS=0
 
 find "$LOCAL_OUTPUT_DIR" -name "*.md" -type f | while read -r md_file; do
-  # Get relative path from LOCAL_PROCESSING_DIR to preserve folder structure
-  relative_path=$(realpath --relative-to="$LOCAL_PROCESSING_DIR" "$md_file")
-  # Extract just the filename for custom naming
+  # Extract just the filename for naming
   base_name=$(basename "$md_file" .md)
   
-  # Create organized S3 path: doc-reader-outputs/YYYY-MM-DD-HH-MM-SS/original-filename-YYYY-MM-DD-HH-MM-SS.md
-  s3_destination="$OUTPUT_S3_URI_PREFIX/doc-reader-outputs/$PROCESSING_TIMESTAMP/${base_name}-${PROCESSING_TIMESTAMP}.md"
+  # Create S3 path in same folder as source PDFs
+  s3_destination="s3://$S3_BUCKET/$FOLDER_PATH/${base_name}.md"
   
   echo "Uploading: $md_file -> $s3_destination"
   
   # Upload with error handling
   if aws s3 cp "$md_file" "$s3_destination"; then
-    echo "✓ Successfully uploaded: ${base_name}-${PROCESSING_TIMESTAMP}.md"
+    echo "✓ Successfully uploaded: ${base_name}.md"
     MD_FILES_FOUND=$((MD_FILES_FOUND + 1))
   else
     echo "✗ Failed to upload: $md_file"
@@ -89,7 +106,7 @@ if [ "$FAILED_UPLOADS" -gt 0 ]; then
   echo "⚠️  Warning: $FAILED_UPLOADS file(s) failed to upload to S3"
 fi
 
-echo "Successfully uploaded $MD_FILES_FOUND markdown files to S3 in doc-reader-outputs/$PROCESSING_TIMESTAMP/"
+echo "Successfully uploaded $MD_FILES_FOUND markdown files to S3 folder: s3://$S3_BUCKET/$FOLDER_PATH/"
 
 # --- Cleanup ---
 echo "--- Cleaning up local directory ---"

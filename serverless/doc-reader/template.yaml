@@ -189,12 +189,8 @@ Resources:
                     "name": "${ProjectName}",
                     "environment": [
                       {
-                        "name": "INPUT_S3_BUCKET",
-                        "value": "<bucket>/<s3Key>"
-                      },
-                      {
-                        "name": "OUTPUT_S3_URI_PREFIX",
-                        "value": "<bucket>/<s3Key>"
+                        "name": "S3_URI",
+                        "value": "s3://<bucket>/<s3Key>"
                       }
                     ]
                   }
