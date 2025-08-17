@@ -26,9 +26,17 @@ States:
         MaxAttempts: 3
         BackoffRate: 2
         JitterStrategy: FULL
-    Next: Bedrock InvokeModel
+    Next: Store MD File
     Assign:
       extractedText: '{% $states.result.Payload.extractedText %}'
+  Store MD File:
+    Type: Task
+    Arguments:
+      Body: '{% $extractedText %}'
+      Bucket: '{% $bucket %}'
+      Key: '{% $replace($key, ''.pdf'', ''.md'') %}'
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    Next: Bedrock InvokeModel
   Bedrock InvokeModel:
     Type: Task
     Resource: arn:aws:states:::bedrock:invokeModel
@@ -83,7 +91,6 @@ States:
 
                   ## Expected JSON Output Format
 
-                  ```json
                   { 
                     "accountInfo": {
                       "accountHolder": <string or N/A>,
@@ -108,7 +115,6 @@ States:
                       "transactionCount": <integer>
                     }
                   }
-                  ```
 
                   ## Additional Guidelines:
 
