@@ -3,27 +3,49 @@ StartAt: Set Input Variables
 States:
   Set Input Variables:
     Type: Pass
-    Next: GetObject
+    Next: Textract Extract Text
     Assign:
-      inputBucket: "{% $states.input.inputBucket %}"
-      inputKey: "{% $states.input.inputKey %}"
-      outputBucket: "{% $states.input.outputBucket %}"
-      outputKey: "{% $states.input.outputKey %}"
-  GetObject:
+      bucket: "{% $states.input.bucket %}"
+      key: "{% $states.input.key %}"
+
+  Textract Extract Text:
     Type: Task
+    Resource: arn:aws:states:::aws-sdk:textract:analyzeDocument
     Arguments:
-      Bucket: "{% $inputBucket %}"
-      Key: "{% $inputKey %}"
-    Resource: arn:aws:states:::aws-sdk:s3:getObject
-    Next: Bedrock InvokeModel
+      Document:
+        S3Object:
+          Bucket: "{% $bucket %}"
+          Name: "{% $key %}"
+      FeatureTypes:
+        - TABLES
+        - FORMS
+    Next: Process Textract Response
     Retry:
-      - ErrorEquals: ["States.AWS.S3.NoSuchKey", "States.AWS.S3.NoSuchBucket"]
-        IntervalSeconds: 2
+      - ErrorEquals: ["States.AWS.Textract.ThrottlingException", "States.AWS.Textract.ProvisionedThroughputExceededException"]
+        IntervalSeconds: 5
         MaxAttempts: 3
         BackoffRate: 2.0
-    Catch:
-      - ErrorEquals: ["States.ALL"]
-        Next: HandleError
+      - ErrorEquals: ["States.AWS.Textract.InvalidParameterException"]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 1.5
+
+  Process Textract Response:
+    Type: Pass
+    Next: Bedrock InvokeModel
+    Assign:
+      extractedText: >-
+        {% 
+          $join(
+            $states.input.Blocks[Type="LINE"].Text,
+            "\n"
+          )
+        %}
+      documentMetadata:
+        pages: "{% $count($states.input.DocumentMetadata.Pages) %}"
+        extractionTime: "{% $now() %}"
+        textractJobId: "{% $states.input.JobId %}"
+
   Bedrock InvokeModel:
     Type: Task
     Resource: arn:aws:states:::bedrock:invokeModel
@@ -40,14 +62,13 @@ States:
               - type: text
                 text: >-
                   {% 'You are a financial data extraction assistant. Your task
-                  is to analyze bank statements provided in Markdown format and
+                  is to analyze bank statements provided as extracted text from a PDF document and
                   extract all transactions into a structured JSON format.
 
 
                   ## Instructions
 
-                  1. Carefully read the provided bank statement in Markdown
-                  format
+                  1. Carefully read the provided bank statement text that was extracted from a PDF
 
                   2. Extract all transactions with their details
 
@@ -61,11 +82,11 @@ States:
 
                   6. Dates should be in ISO 8601 format (YYYY-MM-DD)
 
-                  7. You must only used the categories from the list of available categories. If there is no category suitable for a given transaction, you must use "Otros"
+                  7. You must only use the categories from the list of available categories. If there is no category suitable for a given transaction, you must use "Otros"
 
                   8. The output should be the JSON only and nothing else
 
-                  ## Available Catergories:
+                  ## Available Categories:
                   
                   - Restaurantes
                   - Despensa
@@ -82,6 +103,7 @@ States:
                   - Servicios Digitales
                   - Sueldos y Salarios
                   - Pago de Tarjeta de Credito
+                  - Otros
 
                   ## Expected JSON Output Format
 
@@ -108,7 +130,7 @@ States:
                     ],
                     "summary": {
                       "totalIncome": <float/currency>,
-                      "totalExepenses": <float/currency>,
+                      "totalExpenses": <float/currency>,
                       "transactionCount": <integer>
                     }
                   }
@@ -122,7 +144,7 @@ States:
                   - Remove currency symbols and convert to floats with 2 decimal points values
 
                   - If the bank statement has additional columns not in the
-                  expected format, extract what it is available
+                  expected format, extract what is available
 
                   - If transactions are not in a table format, extract them from
                   the text
@@ -131,33 +153,58 @@ States:
                   possible
 
 
-                  ## Bank Statement to Analyze: ' & $states.input.Body %}
-    Next: Convert output to JSON
+                  ## Bank Statement Text to Analyze: 
+
+                  ' & $extractedText %}
+    Next: Convert Output to JSON
     Retry:
       - ErrorEquals: ["States.AWS.Bedrock.ThrottlingException", "States.AWS.Bedrock.ServiceQuotaExceededException"]
         IntervalSeconds: 5
         MaxAttempts: 3
         BackoffRate: 2.0
-    Catch:
-      - ErrorEquals: ["States.ALL"]
-        Next: HandleError
-  Convert output to JSON:
+
+  Convert Output to JSON:
     Type: Pass
-    Next: Processing Complete
+    Next: Save Results to S3
     Assign:
       processedContent: '{% $parse($states.input.Body.content[0].text) %}'
-      inputMetadata:
-        inputBucket: "{% $inputBucket %}"
-        inputKey: "{% $inputKey %}"
+      processingMetadata:
+        bucket: "{% $bucket %}"
+        key: "{% $key %}"
         modelId: "anthropic.claude-3-5-haiku-20241022-v1:0"
         timestamp: "{% $now() %}"
+        documentMetadata: "{% $documentMetadata %}"
+
+  Save Results to S3:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    Arguments:
+      Bucket: "{% $bucket %}"
+      Key: "{% $outputKey %}"
+      Body: >-
+        {% 
+          $string({
+            "processingResults": $processedContent,
+            "metadata": $processingMetadata,
+            "textractExtraction": {
+              "extractedText": $extractedText,
+              "documentMetadata": $documentMetadata
+            }
+          })
+        %}
+      ContentType: "application/json"
+    Next: Processing Complete
+    Retry:
+      - ErrorEquals: ["States.AWS.S3.NoSuchBucket", "States.AWS.S3.AccessDenied"]
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 2.0
+    
   Processing Complete:
     Type: Pass
     End: true
     Assign:
       status: "success"
-      message: "Document processed successfully"
-      outputLocation: "{% 's3://' & $outputBucket & '/' & $outputKey %}"
-  HandleError:
-    Type: Pass
-    End: true
+      message: "Document processed successfully with Textract and Bedrock"
+      outputLocation: "{% 's3://' & $bucket & '/' & $outputKey %}"
+      processingMetadata: "{% $processingMetadata %}"

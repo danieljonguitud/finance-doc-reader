@@ -1,19 +1,20 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Deploys Step Functions workflow with Amazon Bedrock integration for LLM processing.
-  Processes markdown files with LLM instructions and returns structured responses.
+  Unified document processor using AWS Textract for PDF text extraction 
+  and Amazon Bedrock for LLM processing. Replaces the previous containerized 
+  doc-reader and separate llm-processor services.
 
 Parameters:
   ProjectName:
     Type: String
-    Default: llm-processor
+    Default: document-processor
   FoundationalModelId:
     Type: String
     Default: anthropic.claude-3-5-haiku-20241022-v1:0
+    Description: Amazon Bedrock model ID for LLM processing
 
 Resources:
-  # IAM Role for Step Functions execution
   StepFunctionsExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -26,6 +27,15 @@ Resources:
               Service: states.amazonaws.com
             Action: sts:AssumeRole
       Policies:
+        - PolicyName: !Sub "${ProjectName}-TextractPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - textract:AnalyzeDocument
+                  - textract:DetectDocumentText
+                Resource: "*"
         - PolicyName: !Sub "${ProjectName}-BedrockInvokePolicy"
           PolicyDocument:
             Version: '2012-10-17'
@@ -41,41 +51,40 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - s3:PutObject
                   - s3:GetObject
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
                   - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                Resource: !Sub
-                  - "arn:aws:s3:::${OutputBucket}/*"
-                  - OutputBucket: !ImportValue finance-doc-core-infra-output-bucket
         - PolicyName: !Sub "${ProjectName}-CloudWatchLogsPolicy"
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - logs:DescribeLogGroups
-                  - logs:DescribeLogStreams
+                  - logs:*
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
 
-  LlmProcessorStateMachine:
+  # Step Functions State Machine
+  DocumentProcessorStateMachine:
     Type: AWS::Serverless::StateMachine
-    Description: LLM Document Processor
     Properties:
       Name: !Sub "${ProjectName}-StateMachine"
       Role: !GetAtt StepFunctionsExecutionRole.Arn
-      DefinitionUri: llm-processor-state-machine.yaml
+      DefinitionUri: document-processor-state-machine.yaml
 
-  EventBridgeRole:
+  # Dead Letter Queue for failed processing
+  DocumentProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-processing-dlq"
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # IAM Role for EventBridge to invoke Step Functions
+  EventBridgeStepFunctionsRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: DocReaderEventBridgeRole
+      RoleName: !Sub "${ProjectName}-EventBridgeStepFunctionsRole"
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -91,13 +100,22 @@ Resources:
               - Effect: Allow
                 Action:
                   - states:StartExecution
-                Resource: !GetAtt LlmProcessorStateMachine.Arn
+                Resource: !GetAtt DocumentProcessorStateMachine.Arn
+        - PolicyName: SQSAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt DocumentProcessingDLQ.Arn
 
-  LlmStartProcessorRule:
+  # EventBridge Rule to trigger processing on PDF upload
+  DocumentUploadEventRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: llm-processor-start
-      Description: "Triggers LLM processor when doc-reader uploads markdown files to S3"
+      Name: !Sub "${ProjectName}-DocumentUploadRule"
+      Description: "Trigger document processor when PDFs are uploaded to input bucket"
       EventPattern:
         source:
           - "aws.s3"
@@ -110,27 +128,39 @@ Resources:
           object:
             key:
               - prefix: "userId/documents/"
-              - suffix: ".md"
+              - suffix: ".pdf"
       State: ENABLED
       Targets:
-        - Arn: !Ref LlmProcessorStateMachine
-          Id: LlmProcessorTarget
-          RoleArn: !GetAtt EventBridgeRole.Arn
+        - Id: "DocumentProcessorTarget"
+          Arn: !GetAtt DocumentProcessorStateMachine.Arn
+          RoleArn: !GetAtt EventBridgeStepFunctionsRole.Arn
+          DeadLetterConfig:
+            Arn: !GetAtt DocumentProcessingDLQ.Arn
           InputTransformer:
             InputPathsMap:
-              bucket: $.detail.bucket.name
-              key: $.detail.object.key
-            InputTemplate: |
+              bucket: "$.detail.bucket.name"
+              key: "$.detail.object.key"
+            InputTemplate: !Sub |
               {
-                "input_bucket": "<bucket>",
-                "input_key": "<key>",
-                "output_bucket": "<bucket>",
-                "output_key": "llm-processed/<key>-processed.json"
+                "bucket": "<bucket>",
+                "key": "<key>"
               }
 
 Outputs:
   StateMachineArn:
     Description: "The ARN of the Step Functions State Machine"
-    Value: !Ref LlmProcessorStateMachine
+    Value: !GetAtt DocumentProcessorStateMachine.Arn
     Export:
       Name: !Sub '${ProjectName}-state-machine-arn'
+
+  DocumentProcessingDLQUrl:
+    Description: "URL of the Dead Letter Queue for failed document processing"
+    Value: !Ref DocumentProcessingDLQ
+    Export:
+      Name: !Sub "${ProjectName}-dlq-url"
+
+  DocumentProcessingDLQArn:
+    Description: "ARN of the Dead Letter Queue for failed document processing"  
+    Value: !GetAtt DocumentProcessingDLQ.Arn
+    Export:
+      Name: !Sub "${ProjectName}-dlq-arn"

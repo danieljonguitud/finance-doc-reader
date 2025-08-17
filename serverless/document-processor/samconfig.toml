@@ -1,0 +1,10 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "document-processor-local"
+resolve_s3 = true
+s3_prefix = "document-processor-local"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"]
+parameter_overrides = "ProjectName=\"document-process-local\" FoundationalModelId=\"anthropic.claude-3-5-haiku-20241022-v1:0\""
+image_repositories = []

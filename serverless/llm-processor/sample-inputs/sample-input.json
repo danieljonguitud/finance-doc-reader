@@ -1,7 +1,0 @@
-{
-  "input_bucket": "finance-doc-core-infra-input-bucket-123456789012-us-east-1",
-  "input_key": "sample-document.md",
-  "instructions": "Please analyze this financial document and provide a summary of key insights, including any financial metrics, trends, or recommendations mentioned.",
-  "output_bucket": "finance-doc-core-infra-output-bucket-123456789012-us-east-1",
-  "output_key": "processed/sample-document-analysis.json"
-}
