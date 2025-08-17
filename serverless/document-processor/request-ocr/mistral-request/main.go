@@ -1,15 +1,15 @@
-package mistralRequest
+package mistralrequest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type OCRRequest struct {
@@ -32,12 +32,29 @@ type Page struct {
 	Markdown string `json:"markdown"`
 }
 
-func RequestPDFtoMD(pdfStr string) (string, error) {
-	url := os.Getenv("MISTRAL_API_ENDPOINT")
-	apiKey := os.Getenv("MISTRAL_API_KEY")
+type APIError struct {
+	StatusCode int
+	Message    string
+}
 
+func (e *APIError) Error() string {
+	return fmt.Sprintf("API error %d: %s", e.StatusCode, e.Message)
+}
+
+func RequestPDFToMD(ctx context.Context, pdfStr string) (string, error) {
+	// Input validation
+	if pdfStr == "" {
+		return "", fmt.Errorf("pdfStr cannot be empty")
+	}
+
+	url := os.Getenv("MISTRAL_API_ENDPOINT")
+	if url == "" {
+		return "", fmt.Errorf("MISTRAL_API_ENDPOINT environment variable not set")
+	}
+
+	apiKey := os.Getenv("MISTRAL_API_KEY")
 	if apiKey == "" {
-		return "", errors.New("MISTRAL_API_KEY environment variable not set")
+		return "", fmt.Errorf("MISTRAL_API_KEY environment variable not set")
 	}
 
 	requestData := OCRRequest{
@@ -50,53 +67,59 @@ func RequestPDFtoMD(pdfStr string) (string, error) {
 	}
 
 	jsonData, err := json.Marshal(requestData)
-
 	if err != nil {
-		log.Printf("Error Marshalling: %s", err)
-		return "", errors.New("Error marshalling request data")
+		return "", fmt.Errorf("failed to marshal request data: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Printf("Error Creating Mistral request: %s", err)
-		return "", errors.New("Create Mistral Request Failed")
+		return "", fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error during Mistral request: %s", err)
-		return "", errors.New("Error Mistral request")
+		return "", fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error reding response body: %s", err)
-		return "", errors.New("Error reading response body")
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Request Status Error: %s", resp.Status)
-		return "", errors.New("Request Status Error")
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", &APIError{
+			StatusCode: resp.StatusCode,
+			Message:    string(body),
+		}
 	}
 
 	var mistralResponse MistralOCRResponse
-	err = json.Unmarshal(body, &mistralResponse)
-	if err != nil {
-		log.Printf("Request parsing response: %s", err)
-		return "", errors.New("Error parsing response")
+	if err := json.Unmarshal(body, &mistralResponse); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if len(mistralResponse.Pages) == 0 {
+		return "", fmt.Errorf("no pages found in OCR response")
 	}
 
 	return combinePages(&mistralResponse), nil
 }
 
-func combinePages(body *MistralOCRResponse) string {
+func combinePages(response *MistralOCRResponse) string {
+	if len(response.Pages) == 0 {
+		return ""
+	}
+
 	var builder strings.Builder
-	for i, page := range body.Pages {
+
+	for i, page := range response.Pages {
 		if i > 0 {
 			builder.WriteString("\n")
 		}

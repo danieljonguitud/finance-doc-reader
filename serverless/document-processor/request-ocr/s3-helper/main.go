@@ -1,12 +1,10 @@
-package s3Helper
+package s3helper
 
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -29,20 +27,20 @@ func RetrieveFile(ctx context.Context, bucket string, key string) (string, error
 		Bucket: &bucket,
 		Key:    &key,
 	})
-
 	if err != nil {
-		log.Printf("Error during GetObject operation: %s", err)
-		return "", errors.New("Error during GetObject operation")
+		return "", fmt.Errorf("failed to get S3 object s3://%s/%s: %w", bucket, key, err)
 	}
 	defer object.Body.Close()
 
 	body, err := io.ReadAll(object.Body)
 	if err != nil {
-		log.Printf("Error during reading object: %s", err)
-		return "", errors.New("Error during reading object")
+		return "", fmt.Errorf("failed to read S3 object s3://%s/%s: %w", bucket, key, err)
+	}
+
+	if len(body) == 0 {
+		return "", fmt.Errorf("S3 object s3://%s/%s is empty", bucket, key)
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(body)
-
 	return encoded, nil
 }

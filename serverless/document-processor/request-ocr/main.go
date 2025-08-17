@@ -21,17 +21,26 @@ type RequestOCROutput struct {
 }
 
 func handler(ctx context.Context, event RequestOCRInput) (RequestOCROutput, error) {
-	log.Printf("Event %s", event)
-	pdfBase64Str, err := s3Helper.RetrieveFile(ctx, event.Bucket, event.Key)
-	if err != nil {
-		panic(fmt.Sprintf("failed getting pdf from s3: %v", err))
+	log.Printf("Processing OCR request for s3://%s/%s", event.Bucket, event.Key)
+
+	if event.Bucket == "" {
+		return RequestOCROutput{}, fmt.Errorf("bucket is required")
+	}
+	if event.Key == "" {
+		return RequestOCROutput{}, fmt.Errorf("key is required")
 	}
 
-	extractedText, err := mistralRequest.RequestPDFtoMD(pdfBase64Str)
+	pdfBase64Str, err := s3helper.RetrieveFile(ctx, event.Bucket, event.Key)
 	if err != nil {
-		panic(fmt.Sprintf("failed getting pdf from s3: %v", err))
+		return RequestOCROutput{}, fmt.Errorf("failed to retrieve PDF from S3: %w", err)
 	}
 
+	extractedText, err := mistralrequest.RequestPDFToMD(ctx, pdfBase64Str)
+	if err != nil {
+		return RequestOCROutput{}, fmt.Errorf("failed to extract text from PDF: %w", err)
+	}
+
+	log.Printf("Successfully extracted %d characters of text", len(extractedText))
 	return RequestOCROutput{
 		ExtractedText: extractedText,
 	}, nil
