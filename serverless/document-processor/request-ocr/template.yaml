@@ -11,10 +11,6 @@ Parameters:
     Type: String
     Default: "https://api.mistral.ai/v1/ocr"
     Description: Mistral API OCR endpoint URL
-  MistralApiKeySecretName:
-    Type: String
-    Default: "mistral-api-key"
-    Description: Name of the secret in Secrets Manager containing Mistral API key
 
 Globals:
   Function:
@@ -48,7 +44,7 @@ Resources:
                   - s3:PutObject
                 Resource: !Sub
                   - "arn:aws:s3:::${S3Bucket}/*"
-                  - S3Bucket: !ImportValue finance-doc-core-infra-bucket
+                  - S3Bucket: !ImportValue finance-doc-core-infra-documents-bucket
         - PolicyName: !Sub "${ProjectName}-SecretsManagerPolicy"
           PolicyDocument:
             Version: '2012-10-17'
@@ -69,8 +65,7 @@ Resources:
       Environment:
         Variables:
           MISTRAL_API_ENDPOINT: !Ref MistralApiEndpoint
-          MISTRAL_API_KEY_SECRET: !Ref MistralApiKeySecretName
-          S3_BUCKET: !ImportValue finance-doc-core-infra-bucket
+          MISTRAL_API_SECRET: "secret"
 
   RequestOcrLogGroup:
     Type: AWS::Logs::LogGroup

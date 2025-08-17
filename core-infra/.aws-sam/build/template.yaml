@@ -28,7 +28,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
-        Fn::Sub: ${ProjectName}-input-bucket-${AWS::AccountId}-${AWS::Region}
+        Fn::Sub: ${ProjectName}-bucket-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -44,4 +44,4 @@ Outputs:
       Ref: InputBucket
     Export:
       Name:
-        Fn::Sub: ${ProjectName}-input-bucket
+        Fn::Sub: ${ProjectName}-bucket

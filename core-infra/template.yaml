@@ -25,10 +25,10 @@ Parameters:
     MaxValue: 128 
 
 Resources:
-  InputBucket:
+  DocumentsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${ProjectName}-bucket-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "${ProjectName}-documents-bucket-${AWS::AccountId}-${AWS::Region}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -68,11 +68,11 @@ Resources:
 #          Value: !Sub "${ProjectName}-postgres-instance"
 
 Outputs:
-  InputBucketName:
-    Description: "Name of the S3 bucket for input files"
+  DocumentsBucket:
+    Description: "Name of the S3 bucket for users documents"
     Value: !Ref InputBucket
     Export:
-      Name: !Sub '${ProjectName}-bucket'
+      Name: !Sub '${ProjectName}-documents-bucket'
   
 #  AuroraClusterArn:
 #    Description: "ARN of the Aurora PostgreSQL cluster for Data API access"

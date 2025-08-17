@@ -36,7 +36,7 @@ Resources:
         IntegrationHttpMethod: PUT
         Uri: !Sub
           - "arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/userId/documents/{requestId}_{timestamp}/{filename}.pdf"
-          - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
+          - InputBucket: !ImportValue finance-doc-core-infra-documents-bucket
         Credentials: !Ref ApiGatewayExecutionRoleArn
         RequestParameters:
           integration.request.path.timestamp: "context.requestTimeEpoch"

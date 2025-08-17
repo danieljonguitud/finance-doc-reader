@@ -55,7 +55,7 @@ Resources:
                   - s3:GetObject
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
-                  - InputBucket: !ImportValue finance-doc-core-infra-bucket
+                  - InputBucket: !ImportValue finance-doc-core-infra-documents-bucket
         - PolicyName: !Sub "${ProjectName}-LambdaPolicy"
           PolicyDocument:
             Version: '2012-10-17'
@@ -132,7 +132,7 @@ Resources:
         detail:
           bucket:
             name:
-              - !ImportValue finance-doc-core-infra-bucket
+              - !ImportValue finance-doc-core-infra-documents-bucket
           object:
             key:
               - prefix: "userId/documents/"
