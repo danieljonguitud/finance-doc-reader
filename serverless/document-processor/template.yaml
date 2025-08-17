@@ -55,7 +55,15 @@ Resources:
                   - s3:GetObject
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
-                  - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
+                  - InputBucket: !ImportValue finance-doc-core-infra-bucket
+        - PolicyName: !Sub "${ProjectName}-LambdaPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - invoke:Lambda
+                Resource: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
         - PolicyName: !Sub "${ProjectName}-CloudWatchLogsPolicy"
           PolicyDocument:
             Version: '2012-10-17'
@@ -124,7 +132,7 @@ Resources:
         detail:
           bucket:
             name:
-              - !ImportValue finance-doc-core-infra-input-bucket
+              - !ImportValue finance-doc-core-infra-bucket
           object:
             key:
               - prefix: "userId/documents/"
@@ -145,6 +153,11 @@ Resources:
                 "bucket": "<bucket>",
                 "key": "<key>"
               }
+
+  RequestOcrFunction:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./request-ocr/template.yaml
 
 Outputs:
   StateMachineArn:

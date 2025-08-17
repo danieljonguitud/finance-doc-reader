@@ -30,7 +30,7 @@ Resources:
                   - s3:PutObjectAcl
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
-                  - InputBucket: !ImportValue finance-doc-core-infra-input-bucket
+                  - InputBucket: !ImportValue finance-doc-core-infra-bucket
 
   ApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
@@ -96,7 +96,7 @@ Resources:
       StageName: dev
       Description: Stage for web-api
       Variables:
-        inputBucket: !ImportValue finance-doc-core-infra-input-bucket
+        inputBucket: !ImportValue finance-doc-core-infra-bucket
       MethodSettings:
         - ResourcePath: "/*"
           HttpMethod: "*"

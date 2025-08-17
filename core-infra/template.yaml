@@ -28,7 +28,7 @@ Resources:
   InputBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${ProjectName}-input-bucket-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "${ProjectName}-bucket-${AWS::AccountId}-${AWS::Region}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -72,7 +72,7 @@ Outputs:
     Description: "Name of the S3 bucket for input files"
     Value: !Ref InputBucket
     Export:
-      Name: !Sub '${ProjectName}-input-bucket'
+      Name: !Sub '${ProjectName}-bucket'
   
 #  AuroraClusterArn:
 #    Description: "ARN of the Aurora PostgreSQL cluster for Data API access"

@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Handles PDF text extraction using Mistral OCR API.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: request-ocr
+  MistralApiEndpoint:
+    Type: String
+    Default: "https://api.mistral.ai/v1/ocr"
+    Description: Mistral API OCR endpoint URL
+  MistralApiKeySecretName:
+    Type: String
+    Default: "mistral-api-key"
+    Description: Name of the secret in Secrets Manager containing Mistral API key
+
+Globals:
+  Function:
+    Timeout: 300 
+    MemorySize: 1024
+    Runtime: provided.al2023
+    Architecture: arm64
+
+Resources:
+  RequestOcrLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-LambdaRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-S3AccessPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub
+                  - "arn:aws:s3:::${S3Bucket}/*"
+                  - S3Bucket: !ImportValue finance-doc-core-infra-bucket
+        - PolicyName: !Sub "${ProjectName}-SecretsManagerPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${MistralApiKeySecretName}*"
+
+  RequestOcrFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-function"
+      CodeUri: ./
+      Handler: bootstrap
+      Role: !GetAtt RequestOcrLambdaRole.Arn
+      Description: "Processes PDF documents using Mistral OCR API for text extraction"
+      Environment:
+        Variables:
+          MISTRAL_API_ENDPOINT: !Ref MistralApiEndpoint
+          MISTRAL_API_KEY_SECRET: !Ref MistralApiKeySecretName
+          S3_BUCKET: !ImportValue finance-doc-core-infra-bucket
+
+  RequestOcrLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProjectName}-function"
+      RetentionInDays: 14
+
+Outputs:
+  RequestOcrFunctionArn:
+    Description: "ARN of the Request OCR Lambda function"
+    Value: !GetAtt RequestOcrFunction.Arn
+
+  RequestOcrFunctionName:
+    Description: "Name of the Request OCR Lambda function"
+    Value: !Ref RequestOcrFunction
