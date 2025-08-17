@@ -98,6 +98,8 @@ Resources:
           Fn::GetAtt:
           - RequestOcrFunction
           - Outputs.RequestOcrFunctionArn
+        FoundationalModelId:
+          Ref: FoundationalModelId
   DocumentProcessingDLQ:
     Type: AWS::SQS::Queue
     Properties:

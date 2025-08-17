@@ -3,16 +3,16 @@ StartAt: Set Input Variables
 States:
   Set Input Variables:
     Type: Pass
-    Next: Lambda Invoke
+    Next: Request Mistral OCR for Markdown
     Assign:
       bucket: '{% $states.input.bucket %}'
       key: '{% $states.input.key %}'
-  Lambda Invoke:
+  Request Mistral OCR for Markdown:
     Type: Task
     Resource: arn:aws:states:::lambda:invoke
     Output: '{% $states.result.Payload %}'
     Arguments:
-      FunctionName: arn:aws:lambda:us-west-2:950610185927:function:request-ocr-function
+      FunctionName: ${RequestOcrFunctionArn}
       Payload:
         bucket: '{% $bucket %}'
         key: '{% $key %}'
@@ -28,13 +28,13 @@ States:
         JitterStrategy: FULL
     Next: Bedrock InvokeModel
     Assign:
-      extractedText: '{% $states.result.extractedText %}'
+      extractedText: '{% $states.result.Payload.extractedText %}'
   Bedrock InvokeModel:
     Type: Task
     Resource: arn:aws:states:::bedrock:invokeModel
     Arguments:
       ModelId: >-
-        arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0
+        arn:aws:bedrock:us-west-2::foundation-model/${FoundationalModelId}
       Body:
         anthropic_version: bedrock-2023-05-31
         max_tokens: 4096
@@ -71,7 +71,7 @@ States:
                   categories. If there is no category suitable for a given
                   transaction, you must use "Otros"
 
-                  8. The output should be the JSON only and nothing else
+                  8. The output should be in JSON format only and nothing else
 
                   ## Available Categories:
 
@@ -84,10 +84,8 @@ States:
                   ## Expected JSON Output Format
 
                   ```json
-
                   { 
                     "accountInfo": {
-                      "accountNumber": <string or N/A>,
                       "accountHolder": <string or N/A>,
                       "bankName": <string or N/A>,
                       "statementPeriod": {
@@ -110,7 +108,6 @@ States:
                       "transactionCount": <integer>
                     }
                   }
-
                   ```
 
                   ## Additional Guidelines:
@@ -143,7 +140,6 @@ States:
         BackoffRate: 2
   Convert Output to JSON:
     Type: Pass
-    Next: Save Results to S3
     Assign:
       processedContent: '{% $parse($states.input.Body.content[0].text) %}'
       processingMetadata:
@@ -151,38 +147,4 @@ States:
         key: '{% $key %}'
         modelId: anthropic.claude-3-5-haiku-20241022-v1:0
         timestamp: '{% $now() %}'
-        documentMetadata: '{% $documentMetadata %}'
-  Save Results to S3:
-    Type: Task
-    Resource: arn:aws:states:::aws-sdk:s3:putObject
-    Arguments:
-      Bucket: '{% $bucket %}'
-      Key: '{% $outputKey %}'
-      Body: |-
-        {% 
-          $string({
-            "processingResults": $processedContent,
-            "metadata": $processingMetadata,
-            "textractExtraction": {
-              "extractedText": $extractedText,
-              "documentMetadata": $documentMetadata
-            }
-          })
-        %}
-      ContentType: application/json
-    Next: Processing Complete
-    Retry:
-      - ErrorEquals:
-          - States.AWS.S3.NoSuchBucket
-          - States.AWS.S3.AccessDenied
-        IntervalSeconds: 2
-        MaxAttempts: 3
-        BackoffRate: 2
-  Processing Complete:
-    Type: Pass
     End: true
-    Assign:
-      status: success
-      message: Document processed successfully with Textract and Bedrock
-      outputLocation: '{% ''s3://'' & $bucket & ''/'' & $outputKey %}'
-      processingMetadata: '{% $processingMetadata %}'

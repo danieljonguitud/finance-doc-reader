@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Handles PDF text extraction using Mistral OCR API.
+
+  '
+Parameters:
+  ProjectName:
+    Type: String
+    Default: request-ocr
+  MistralApiEndpoint:
+    Type: String
+    Default: https://api.mistral.ai/v1/ocr
+    Description: Mistral API OCR endpoint URL
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 1024
+    Runtime: provided.al2023
+    Architectures:
+    - arm64
+Resources:
+  RequestOcrLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-LambdaRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-S3AccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            Resource:
+              Fn::Sub:
+              - arn:aws:s3:::${S3Bucket}/*/*/*
+              - S3Bucket:
+                  Fn::ImportValue: finance-doc-core-infra-documents-bucket
+  RequestOcrFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-function
+      CodeUri: RequestOcrFunction
+      Handler: bootstrap
+      Role:
+        Fn::GetAtt:
+        - RequestOcrLambdaRole
+        - Arn
+      Description: Processes PDF documents using Mistral OCR API for text extraction
+      Environment:
+        Variables:
+          MISTRAL_API_ENDPOINT:
+            Ref: MistralApiEndpoint
+          MISTRAL_API_KEY: secret
+    Metadata:
+      SamResourceId: RequestOcrFunction
+  RequestOcrLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${ProjectName}-function
+      RetentionInDays: 14
+Outputs:
+  RequestOcrFunctionArn:
+    Description: ARN of the Request OCR Lambda function
+    Value:
+      Fn::GetAtt:
+      - RequestOcrFunction
+      - Arn
+  RequestOcrFunctionName:
+    Description: Name of the Request OCR Lambda function
+    Value:
+      Ref: RequestOcrFunction

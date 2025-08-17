@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
+
+	"request-ocr/mistral-request"
+	"request-ocr/s3-helper"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -13,18 +16,25 @@ type RequestOCRInput struct {
 	Key    string `json:"key"`
 }
 
-var (
-	mistralApiEndpoint string
-	mistralApiSecret   string
-)
-
-func init() {
-	mistralApiEndpoint = os.Getenv("MISTRAL_API_ENDPOINT")
-	mistralApiSecret = os.Getenv("MISTRAL_API_SECRET")
+type RequestOCROutput struct {
+	ExtractedText string `json:"extractedText"`
 }
 
-func handler(ctx context.Context, event RequestOCRInput) {
+func handler(ctx context.Context, event RequestOCRInput) (RequestOCROutput, error) {
 	log.Printf("Event %s", event)
+	pdfBase64Str, err := s3Helper.RetrieveFile(ctx, event.Bucket, event.Key)
+	if err != nil {
+		panic(fmt.Sprintf("failed getting pdf from s3: %v", err))
+	}
+
+	extractedText, err := mistralRequest.RequestPDFtoMD(pdfBase64Str)
+	if err != nil {
+		panic(fmt.Sprintf("failed getting pdf from s3: %v", err))
+	}
+
+	return RequestOCROutput{
+		ExtractedText: extractedText,
+	}, nil
 }
 
 func main() {

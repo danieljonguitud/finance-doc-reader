@@ -81,6 +81,7 @@ Resources:
       DefinitionUri: document-processor-state-machine.yaml
       DefinitionSubstitutions:
         RequestOcrFunctionArn: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
+        FoundationalModelId: !Ref FoundationalModelId
 
   # Dead Letter Queue for failed processing
   DocumentProcessingDLQ:

@@ -1,0 +1,216 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Unified document processor using AWS Textract for PDF text extraction  and
+  Amazon Bedrock for LLM processing. Replaces the previous containerized  doc-reader
+  and separate llm-processor services.
+
+  '
+Parameters:
+  ProjectName:
+    Type: String
+    Default: document-processor
+  FoundationalModelId:
+    Type: String
+    Default: anthropic.claude-3-5-haiku-20241022-v1:0
+    Description: Amazon Bedrock model ID for LLM processing
+Resources:
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-StepFunctionsExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: states.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-TextractPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - textract:AnalyzeDocument
+            - textract:DetectDocumentText
+            Resource: '*'
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-BedrockInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - bedrock:InvokeModel
+            Resource:
+            - Fn::Sub: arn:aws:bedrock:${AWS::Region}::foundation-model/${FoundationalModelId}
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-S3AccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            Resource:
+              Fn::Sub:
+              - arn:aws:s3:::${InputBucket}/*
+              - InputBucket:
+                  Fn::ImportValue: finance-doc-core-infra-documents-bucket
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-LambdaPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - RequestOcrFunction
+              - Outputs.RequestOcrFunctionArn
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-CloudWatchLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+  DocumentProcessorStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-StateMachine
+      Role:
+        Fn::GetAtt:
+        - StepFunctionsExecutionRole
+        - Arn
+      DefinitionUri: ../../document-processor-state-machine.yaml
+      DefinitionSubstitutions:
+        RequestOcrFunctionArn:
+          Fn::GetAtt:
+          - RequestOcrFunction
+          - Outputs.RequestOcrFunctionArn
+        FoundationalModelId:
+          Ref: FoundationalModelId
+  DocumentProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Fn::Sub: ${ProjectName}-processing-dlq
+      MessageRetentionPeriod: 1209600
+  EventBridgeStepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: ${ProjectName}-EventBridgeStepFunctionsRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: StepFunctionsInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - states:StartExecution
+            Resource:
+              Fn::GetAtt:
+              - DocumentProcessorStateMachine
+              - Arn
+      - PolicyName: SQSAccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sqs:SendMessage
+            Resource:
+              Fn::GetAtt:
+              - DocumentProcessingDLQ
+              - Arn
+  DocumentUploadEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-DocumentUploadRule
+      Description: Trigger document processor when PDFs are uploaded to input bucket
+      EventPattern:
+        source:
+        - aws.s3
+        detail-type:
+        - Object Created
+        detail:
+          bucket:
+            name:
+            - Fn::ImportValue: finance-doc-core-infra-documents-bucket
+          object:
+            key:
+            - prefix: userId/documents/
+            - suffix: .pdf
+      State: ENABLED
+      Targets:
+      - Id: DocumentProcessorTarget
+        Arn:
+          Fn::GetAtt:
+          - DocumentProcessorStateMachine
+          - Arn
+        RoleArn:
+          Fn::GetAtt:
+          - EventBridgeStepFunctionsRole
+          - Arn
+        DeadLetterConfig:
+          Arn:
+            Fn::GetAtt:
+            - DocumentProcessingDLQ
+            - Arn
+        InputTransformer:
+          InputPathsMap:
+            bucket: $.detail.bucket.name
+            key: $.detail.object.key
+          InputTemplate:
+            Fn::Sub: "{\n  \"bucket\": \"<bucket>\",\n  \"key\": \"<key>\"\n}\n"
+  RequestOcrFunction:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: RequestOcrFunction/template.yaml
+    Metadata:
+      SamResourceId: RequestOcrFunction
+Outputs:
+  StateMachineArn:
+    Description: The ARN of the Step Functions State Machine
+    Value:
+      Fn::GetAtt:
+      - DocumentProcessorStateMachine
+      - Arn
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-state-machine-arn
+  DocumentProcessingDLQUrl:
+    Description: URL of the Dead Letter Queue for failed document processing
+    Value:
+      Ref: DocumentProcessingDLQ
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-dlq-url
+  DocumentProcessingDLQArn:
+    Description: ARN of the Dead Letter Queue for failed document processing
+    Value:
+      Fn::GetAtt:
+      - DocumentProcessingDLQ
+      - Arn
+    Export:
+      Name:
+        Fn::Sub: ${ProjectName}-dlq-arn

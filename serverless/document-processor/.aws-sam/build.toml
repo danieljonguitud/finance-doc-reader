@@ -5,6 +5,7 @@ codeuri = "/Users/dj/repos/finance-doc-reader/serverless/document-processor/requ
 runtime = "provided.al2023"
 architecture = "arm64"
 handler = "bootstrap"
+source_hash = "cbd8269e978fe5f171bd85ce3dda994334aba61344049e9997ebbfbc6ae98c6f"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["RequestOcrFunction/RequestOcrFunction"]
