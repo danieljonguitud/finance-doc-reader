@@ -37,64 +37,7 @@ Resources:
       NotificationConfiguration:
         EventBridgeConfiguration:
           EventBridgeEnabled: true
-  OutputBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        Fn::Sub: ${ProjectName}-output-bucket-${AWS::AccountId}-${AWS::Region}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-  EcsCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName:
-        Fn::Sub: ${ProjectName}-cluster
-  AuroraCluster:
-    Type: AWS::RDS::DBCluster
-    Properties:
-      DBClusterIdentifier:
-        Fn::Sub: ${ProjectName}-postgres-cluster
-      Engine: aurora-postgresql
-      EngineVersion: 16.6
-      DatabaseName:
-        Ref: DatabaseName
-      MasterUsername: finance_docs
-      ManageMasterUserPassword: true
-      EnableHttpEndpoint: true
-      ServerlessV2ScalingConfiguration:
-        MinCapacity:
-          Ref: MinCapacity
-        MaxCapacity:
-          Ref: MaxCapacity
-      DeletionProtection: false
-      Tags:
-      - Key: Name
-        Value:
-          Fn::Sub: ${ProjectName}-postgres-cluster
-  AuroraInstance:
-    Type: AWS::RDS::DBInstance
-    Properties:
-      DBInstanceIdentifier:
-        Fn::Sub: ${ProjectName}-postgres-instance
-      DBClusterIdentifier:
-        Ref: AuroraCluster
-      DBInstanceClass: db.serverless
-      Engine: aurora-postgresql
-      Tags:
-      - Key: Name
-        Value:
-          Fn::Sub: ${ProjectName}-postgres-instance
 Outputs:
-  EcsClusterName:
-    Description: The name of the ECS Cluster
-    Value:
-      Ref: EcsCluster
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-ecs-cluster
   InputBucketName:
     Description: Name of the S3 bucket for input files
     Value:
@@ -102,42 +45,3 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${ProjectName}-input-bucket
-  OutputBucketName:
-    Description: Name of the S3 bucket for output files
-    Value:
-      Ref: InputBucket
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-output-bucket
-  AuroraClusterArn:
-    Description: ARN of the Aurora PostgreSQL cluster for Data API access
-    Value:
-      Fn::Sub: arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-aurora-cluster-arn
-  AuroraClusterEndpoint:
-    Description: Aurora cluster endpoint
-    Value:
-      Fn::GetAtt:
-      - AuroraCluster
-      - Endpoint.Address
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-aurora-cluster-endpoint
-  DatabaseSecretArn:
-    Description: ARN of the database master user secret
-    Value:
-      Fn::GetAtt:
-      - AuroraCluster
-      - MasterUserSecret.SecretArn
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-database-secret-arn
-  DatabaseName:
-    Description: Name of the PostgreSQL database
-    Value:
-      Ref: DatabaseName
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-database-name
