@@ -70,7 +70,7 @@ Resources:
 Outputs:
   DocumentsBucket:
     Description: "Name of the S3 bucket for users documents"
-    Value: !Ref InputBucket
+    Value: !Ref DocumentsBucket
     Export:
       Name: !Sub '${ProjectName}-documents-bucket'
   

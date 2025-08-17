@@ -60,7 +60,19 @@ Resources:
               Fn::Sub:
               - arn:aws:s3:::${InputBucket}/*
               - InputBucket:
-                  Fn::ImportValue: finance-doc-core-infra-input-bucket
+                  Fn::ImportValue: finance-doc-core-infra-documents-bucket
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-LambdaPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - RequestOcrFunction
+              - Outputs.RequestOcrFunctionArn
       - PolicyName:
           Fn::Sub: ${ProjectName}-CloudWatchLogsPolicy
         PolicyDocument:
@@ -81,6 +93,11 @@ Resources:
         - StepFunctionsExecutionRole
         - Arn
       DefinitionUri: ../../document-processor-state-machine.yaml
+      DefinitionSubstitutions:
+        RequestOcrFunctionArn:
+          Fn::GetAtt:
+          - RequestOcrFunction
+          - Outputs.RequestOcrFunctionArn
   DocumentProcessingDLQ:
     Type: AWS::SQS::Queue
     Properties:
@@ -136,7 +153,7 @@ Resources:
         detail:
           bucket:
             name:
-            - Fn::ImportValue: finance-doc-core-infra-input-bucket
+            - Fn::ImportValue: finance-doc-core-infra-documents-bucket
           object:
             key:
             - prefix: userId/documents/
@@ -163,6 +180,12 @@ Resources:
             key: $.detail.object.key
           InputTemplate:
             Fn::Sub: "{\n  \"bucket\": \"<bucket>\",\n  \"key\": \"<key>\"\n}\n"
+  RequestOcrFunction:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: RequestOcrFunction/template.yaml
+    Metadata:
+      SamResourceId: RequestOcrFunction
 Outputs:
   StateMachineArn:
     Description: The ARN of the Step Functions State Machine

@@ -62,7 +62,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - invoke:Lambda
+                  - lambda:InvokeFunction
                 Resource: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
         - PolicyName: !Sub "${ProjectName}-CloudWatchLogsPolicy"
           PolicyDocument:
@@ -73,13 +73,14 @@ Resources:
                   - logs:*
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
 
-  # Step Functions State Machine
   DocumentProcessorStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name: !Sub "${ProjectName}-StateMachine"
       Role: !GetAtt StepFunctionsExecutionRole.Arn
       DefinitionUri: document-processor-state-machine.yaml
+      DefinitionSubstitutions:
+        RequestOcrFunctionArn: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
 
   # Dead Letter Queue for failed processing
   DocumentProcessingDLQ:

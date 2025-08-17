@@ -24,11 +24,11 @@ Parameters:
     MinValue: 0.5
     MaxValue: 128
 Resources:
-  InputBucket:
+  DocumentsBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
-        Fn::Sub: ${ProjectName}-bucket-${AWS::AccountId}-${AWS::Region}
+        Fn::Sub: ${ProjectName}-documents-bucket-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -38,10 +38,10 @@ Resources:
         EventBridgeConfiguration:
           EventBridgeEnabled: true
 Outputs:
-  InputBucketName:
-    Description: Name of the S3 bucket for input files
+  DocumentsBucket:
+    Description: Name of the S3 bucket for users documents
     Value:
-      Ref: InputBucket
+      Ref: DocumentsBucket
     Export:
       Name:
-        Fn::Sub: ${ProjectName}-bucket
+        Fn::Sub: ${ProjectName}-documents-bucket

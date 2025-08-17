@@ -17,7 +17,8 @@ Globals:
     Timeout: 300 
     MemorySize: 1024
     Runtime: provided.al2023
-    Architecture: arm64
+    Architectures:
+      - arm64
 
 Resources:
   RequestOcrLambdaRole:
@@ -43,16 +44,8 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub
-                  - "arn:aws:s3:::${S3Bucket}/*"
+                  - "arn:aws:s3:::${S3Bucket}/*/*/*"
                   - S3Bucket: !ImportValue finance-doc-core-infra-documents-bucket
-        - PolicyName: !Sub "${ProjectName}-SecretsManagerPolicy"
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${MistralApiKeySecretName}*"
 
   RequestOcrFunction:
     Type: AWS::Serverless::Function
