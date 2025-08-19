@@ -132,9 +132,9 @@ States:
                   - Validate that the calculated totals match the statement if
                   possible
 
-                  - Some bank staments transactions start from: "Detalle de Movimientos", "Detalle de Operaciones", "Movimientos", "Transacciones Bancarias", "Balance Inicial", "Balance".
+                  - Some bank staments transactions start from: "Detalle de Movimientos", "Detalle de Operaciones", "Movimientos", "Transacciones Bancarias"
 
-                  - Sometimes the transactions table divided with text due to a page separation. Keep this in mind to not lose transactions.
+                  - Sometimes the transactions table divided with text due to a page separation. Keep this in mind to not lose transactions
 
                   ## Bank Statement Text to Analyze: 
 

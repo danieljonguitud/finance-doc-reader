@@ -158,8 +158,7 @@ Resources:
             - Fn::ImportValue: finance-doc-core-infra-documents-bucket
           object:
             key:
-            - prefix: userId/documents/
-            - suffix: .pdf
+            - wildcard: userId/documents/*/*.pdf
       State: ENABLED
       Targets:
       - Id: DocumentProcessorTarget

@@ -118,7 +118,6 @@ Resources:
                   - sqs:SendMessage
                 Resource: !GetAtt DocumentProcessingDLQ.Arn
 
-  # EventBridge Rule to trigger processing on PDF upload
   DocumentUploadEventRule:
     Type: AWS::Events::Rule
     Properties:
@@ -135,8 +134,7 @@ Resources:
               - !ImportValue finance-doc-core-infra-documents-bucket
           object:
             key:
-              - prefix: "userId/documents/"
-              - suffix: ".pdf"
+              - wildcard: "userId/documents/*/*.pdf"
       State: ENABLED
       Targets:
         - Id: "DocumentProcessorTarget"
