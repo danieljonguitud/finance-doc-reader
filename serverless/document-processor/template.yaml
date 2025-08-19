@@ -145,7 +145,7 @@ Resources:
           DeadLetterConfig:
             Arn: !GetAtt DocumentProcessingDLQ.Arn
           RetryPolicy:
-            MaximumRetryAttemps: 0
+             MaximumRetryAttempts: 0
           InputTransformer:
             InputPathsMap:
               bucket: "$.detail.bucket.name"

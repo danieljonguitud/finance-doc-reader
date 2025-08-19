@@ -177,7 +177,7 @@ Resources:
             - DocumentProcessingDLQ
             - Arn
         RetryPolicy:
-          MaximumRetryAttemps: 0
+          MaximumRetryAttempts: 0
         InputTransformer:
           InputPathsMap:
             bucket: $.detail.bucket.name
