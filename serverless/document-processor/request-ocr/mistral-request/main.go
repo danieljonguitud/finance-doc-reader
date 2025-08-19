@@ -121,7 +121,7 @@ func combinePages(response *MistralOCRResponse) string {
 
 	for i, page := range response.Pages {
 		if i > 0 {
-			builder.WriteString("\n")
+			builder.WriteString("\n\n")
 		}
 		builder.WriteString(page.Markdown)
 	}

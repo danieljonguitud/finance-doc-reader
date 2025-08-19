@@ -83,14 +83,12 @@ Resources:
         RequestOcrFunctionArn: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
         FoundationalModelId: !Ref FoundationalModelId
 
-  # Dead Letter Queue for failed processing
   DocumentProcessingDLQ:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub "${ProjectName}-processing-dlq"
       MessageRetentionPeriod: 1209600  # 14 days
 
-  # IAM Role for EventBridge to invoke Step Functions
   EventBridgeStepFunctionsRole:
     Type: AWS::IAM::Role
     Properties:
@@ -146,6 +144,8 @@ Resources:
           RoleArn: !GetAtt EventBridgeStepFunctionsRole.Arn
           DeadLetterConfig:
             Arn: !GetAtt DocumentProcessingDLQ.Arn
+          RetryPolicy:
+            MaximumRetryAttemps: 0
           InputTransformer:
             InputPathsMap:
               bucket: "$.detail.bucket.name"

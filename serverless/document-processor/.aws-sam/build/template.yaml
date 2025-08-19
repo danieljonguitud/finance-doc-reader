@@ -176,6 +176,8 @@ Resources:
             Fn::GetAtt:
             - DocumentProcessingDLQ
             - Arn
+        RetryPolicy:
+          MaximumRetryAttemps: 0
         InputTransformer:
           InputPathsMap:
             bucket: $.detail.bucket.name

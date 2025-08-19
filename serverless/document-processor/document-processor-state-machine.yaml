@@ -71,7 +71,7 @@ States:
                   "N/A" as the value
 
                   5. Ensure all monetary values are returned as floats with 2
-                  decimal points (not strings)
+                  decimal points (not strings). This includes cero cents (.00) Example: 20000 should be 20000.00
 
                   6. Dates should be in ISO 8601 format (YYYY-MM-DD)
 
@@ -132,6 +132,9 @@ States:
                   - Validate that the calculated totals match the statement if
                   possible
 
+                  - Some bank staments transactions start from: "Detalle de Movimientos", "Detalle de Operaciones", "Movimientos", "Transacciones Bancarias", "Balance Inicial", "Balance".
+
+                  - Sometimes the transactions table divided with text due to a page separation. Keep this in mind to not lose transactions.
 
                   ## Bank Statement Text to Analyze: 
 
