@@ -11,18 +11,6 @@ Parameters:
     Type: String
     Default: finance_docs
     Description: Name of the PostgreSQL database
-  MinCapacity:
-    Type: Number
-    Default: 0.5
-    Description: Minimum Aurora Serverless v2 capacity units
-    MinValue: 0.5
-    MaxValue: 128
-  MaxCapacity:
-    Type: Number
-    Default: 1.0
-    Description: Maximum Aurora Serverless v2 capacity units
-    MinValue: 0.5
-    MaxValue: 128 
 
 Resources:
   DocumentsBucket:
@@ -38,34 +26,35 @@ Resources:
         EventBridgeConfiguration:
           EventBridgeEnabled: true
 
-#  AuroraCluster:
-#    Type: AWS::RDS::DBCluster
-#    Properties:
-#      DBClusterIdentifier: !Sub "${ProjectName}-postgres-cluster"
-#      Engine: aurora-postgresql
-#      EngineVersion: 16.6
-#      DatabaseName: !Ref DatabaseName
-#      MasterUsername: finance_docs
-#      ManageMasterUserPassword: true
-#      EnableHttpEndpoint: true
-#      ServerlessV2ScalingConfiguration:
-#        MinCapacity: !Ref MinCapacity
-#        MaxCapacity: !Ref MaxCapacity
-#      DeletionProtection: false
-#      Tags:
-#        - Key: Name
-#          Value: !Sub "${ProjectName}-postgres-cluster"
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub "${ProjectName}-postgres-cluster"
+      Engine: aurora-postgresql
+      EngineVersion: 16.6
+      DatabaseName: !Ref DatabaseName
+      MasterUsername: finance_docs
+      ManageMasterUserPassword: true
+      EnableHttpEndpoint: true
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0
+        MaxCapacity: 1
+        SecondsUntilAutoPause: 300
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-postgres-cluster"
 
-#  AuroraInstance:
-#    Type: AWS::RDS::DBInstance
-#    Properties:
-#      DBInstanceIdentifier: !Sub "${ProjectName}-postgres-instance"
-#      DBClusterIdentifier: !Ref AuroraCluster
-#      DBInstanceClass: db.serverless
-#      Engine: aurora-postgresql
-#      Tags:
-#        - Key: Name
-#          Value: !Sub "${ProjectName}-postgres-instance"
+  AuroraInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${ProjectName}-postgres-instance"
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-postgres-instance"
 
 Outputs:
   DocumentsBucket:
@@ -74,26 +63,26 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-documents-bucket'
   
-#  AuroraClusterArn:
-#    Description: "ARN of the Aurora PostgreSQL cluster for Data API access"
-#    Value: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}"
-#    Export:
-#      Name: !Sub '${ProjectName}-aurora-cluster-arn'
-#      
-#  AuroraClusterEndpoint:
-#    Description: "Aurora cluster endpoint"
-#    Value: !GetAtt AuroraCluster.Endpoint.Address
-#    Export:
-#      Name: !Sub '${ProjectName}-aurora-cluster-endpoint'
-#      
-#  DatabaseSecretArn:
-#    Description: "ARN of the database master user secret"
-#    Value: !GetAtt AuroraCluster.MasterUserSecret.SecretArn
-#    Export:
-#      Name: !Sub '${ProjectName}-database-secret-arn'
-#      
-#  DatabaseName:
-#    Description: "Name of the PostgreSQL database"
-#    Value: !Ref DatabaseName
-#    Export:
-#      Name: !Sub '${ProjectName}-database-name'
+  AuroraClusterArn:
+    Description: "ARN of the Aurora PostgreSQL cluster for Data API access"
+    Value: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}"
+    Export:
+      Name: !Sub '${ProjectName}-aurora-cluster-arn'
+      
+  AuroraClusterEndpoint:
+    Description: "Aurora cluster endpoint"
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+    Export:
+      Name: !Sub '${ProjectName}-aurora-cluster-endpoint'
+      
+  DatabaseSecretArn:
+    Description: "ARN of the database master user secret"
+    Value: !GetAtt AuroraCluster.MasterUserSecret.SecretArn
+    Export:
+      Name: !Sub '${ProjectName}-database-secret-arn'
+      
+  DatabaseName:
+    Description: "Name of the PostgreSQL database"
+    Value: !Ref DatabaseName
+    Export:
+      Name: !Sub '${ProjectName}-database-name'
