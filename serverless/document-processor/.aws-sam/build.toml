@@ -5,6 +5,7 @@ codeuri = "/Users/deejay-air/repos/finance-doc-reader/serverless/document-proces
 runtime = "provided.al2023"
 architecture = "arm64"
 handler = "bootstrap"
+source_hash = "64a1ba7a3657c7410b7554aad8cf7aeed52bf5f221835aa6bf0a57e8b4c00b21"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["RequestOcrFunction/RequestOcrFunction"]

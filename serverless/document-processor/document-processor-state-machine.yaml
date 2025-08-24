@@ -34,7 +34,7 @@ States:
     Arguments:
       Body: '{% $extractedText %}'
       Bucket: '{% $bucket %}'
-      Key: '{% $replace($key, ''.pdf'', ''.md'') %}'
+      Key: "{% $replace($key, '.pdf', '.md') %}"
     Resource: arn:aws:states:::aws-sdk:s3:putObject
     Next: Bedrock InvokeModel
   Bedrock InvokeModel:
@@ -156,4 +156,80 @@ States:
         key: '{% $key %}'
         modelId: anthropic.claude-3-5-haiku-20241022-v1:0
         timestamp: '{% $now() %}'
+    Next: Prepare Database Context
+  Prepare Database Context:
+    Type: Pass
+    Assign:
+      cognitoId: '{% $split($key, "/")[0] %}'
+      clusterArn: ${AuroraClusterArn}
+      secretArn: ${DatabaseSecretArn}
+      database: ${DatabaseName}
+    Next: Get User ID from Database
+  Get User ID from Database:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:rdsdata:executeStatement
+    Arguments:
+      ResourceArn: '{% $clusterArn %}'
+      SecretArn: '{% $secretArn %}'
+      Database: '{% $database %}'
+      Sql: "SELECT id FROM users WHERE cognito_sub = :cognito_sub::uuid LIMIT 1"
+      Parameters:
+        - Name: cognito_sub
+          Value:
+            StringValue: '{% $cognitoId %}'
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 2
+    Next: Prepare Transaction Parameter Sets
+    Assign:
+      userId: '{% $states.result.Records[0][0].LongValue %}'
+  Prepare Transaction Parameter Sets:
+    Type: Pass
+    Assign:
+      parameterSets: >-
+        {% 
+          $map($processedContent.transactions, function($transaction) {
+            [
+              {"Name": "user_id", "Value": {"LongValue": $userId}},
+              {"Name": "transaction_date", "Value": {"StringValue": $transaction.date}},
+              {"Name": "description", "Value": {"StringValue": $transaction.description}},
+              {"Name": "amount", "Value": {"DoubleValue": $transaction.amount}},
+              {"Name": "transaction_type", "Value": {"StringValue": $transaction.type}},
+              {"Name": "category", "Value": {"StringValue": $transaction.category}}
+            ]
+          })
+        %}
+    Next: Insert All Transactions
+  Insert All Transactions:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:rdsdata:batchExecuteStatement
+    Arguments:
+      ResourceArn: '{% $clusterArn %}'
+      SecretArn: '{% $secretArn %}'
+      Database: '{% $database %}'
+      Sql: "INSERT INTO transactions (user_id, transaction_date, description, amount, transaction_type, category) VALUES (:user_id, :transaction_date::date, :description, :amount, :transaction_type, :category)"
+      ParameterSets: '{% $parameterSets %}'
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 2
+    Next: Finalize Processing
+    Assign:
+      insertResult: '{% $states.result %}'
+  Finalize Processing:
+    Type: Pass
+    Assign:
+      finalResult:
+        processingMetadata: '{% $processingMetadata %}'
+        accountInfo: '{% $processedContent.accountInfo %}'
+        transactionsSummary: '{% $processedContent.summary %}'
+        databaseResult:
+          userId: '{% $userId %}'
+          transactionsInserted: '{% $count($processedContent.transactions) %}'
+          insertResult: '{% $insertResult %}'
     End: true

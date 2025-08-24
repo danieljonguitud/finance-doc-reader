@@ -72,6 +72,23 @@ Resources:
                 Action:
                   - logs:*
                 Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+        - PolicyName: !Sub "${ProjectName}-RDSDataApiPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - rds-data:ExecuteStatement
+                  - rds-data:BatchExecuteStatement
+                  - rds-data:BeginTransaction
+                  - rds-data:CommitTransaction
+                  - rds-data:RollbackTransaction
+                Resource: !ImportValue finance-doc-core-infra-aurora-cluster-arn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !ImportValue finance-doc-core-infra-database-secret-arn
 
   DocumentProcessorStateMachine:
     Type: AWS::Serverless::StateMachine
@@ -82,6 +99,9 @@ Resources:
       DefinitionSubstitutions:
         RequestOcrFunctionArn: !GetAtt RequestOcrFunction.Outputs.RequestOcrFunctionArn
         FoundationalModelId: !Ref FoundationalModelId
+        AuroraClusterArn: !ImportValue finance-doc-core-infra-aurora-cluster-arn
+        DatabaseSecretArn: !ImportValue finance-doc-core-infra-database-secret-arn
+        DatabaseName: !ImportValue finance-doc-core-infra-database-name
 
   DocumentProcessingDLQ:
     Type: AWS::SQS::Queue
@@ -134,7 +154,7 @@ Resources:
               - !ImportValue finance-doc-core-infra-documents-bucket
           object:
             key:
-              - wildcard: "userId/documents/*/*.pdf"
+              - wildcard: "*/documents/*/*.pdf"
       State: ENABLED
       Targets:
         - Id: "DocumentProcessorTarget"

@@ -14,7 +14,7 @@ Parameters:
 Globals:
   Function:
     Timeout: 300
-    MemorySize: 1024
+    MemorySize: 256
     Runtime: provided.al2023
     Architectures:
     - arm64
