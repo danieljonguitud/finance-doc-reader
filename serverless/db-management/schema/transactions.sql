@@ -1,4 +1,5 @@
 -- atlas:import users.sql
+-- atlas:import functions/update_updated_at.sql
 
 CREATE TABLE transactions (
     id BIGSERIAL PRIMARY KEY,
@@ -35,3 +36,9 @@ CREATE INDEX idx_transactions_created_at ON transactions(created_at);
 CREATE INDEX idx_transactions_user_date ON transactions(user_id, transaction_date DESC);
 CREATE INDEX idx_transactions_user_category ON transactions(user_id, category);
 CREATE INDEX idx_transactions_user_type_date ON transactions(user_id, transaction_type, transaction_date DESC);
+
+-- Triggers
+CREATE TRIGGER trigger_transactions_updated_at
+    BEFORE UPDATE ON transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
