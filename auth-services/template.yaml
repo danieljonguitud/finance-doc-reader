@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Authentication services for the finance-doc-reader application using AWS Cognito
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: finance-doc-auth-services
+    Description: Name of the project for resource naming
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}"
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: given_name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: family_name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          TemporaryPasswordValidityDays: 7
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationMessage: "Your finance document reader verification code is {####}"
+      EmailVerificationSubject: "Finance Doc Reader - Verify your email"
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      DeviceConfiguration:
+        ChallengeRequiredOnNewDevice: false
+        DeviceOnlyRememberedOnUserPrompt: false
+      UserPoolTags:
+        Project: !Ref ProjectName
+        Service: authentication
+        Environment: dev
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ProjectName}-web-client"
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      GenerateSecret: true
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AllowedOAuthFlowsUserPoolClient: true
+      SupportedIdentityProviders:
+        - COGNITO
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - https://localhost:3000/oauth2/callback
+      LogoutURLs:
+        - https://localhost:3000/oauth2/logout
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: finance-docs
+      UserPoolId: !Ref UserPool
+      ManagedLoginVersion: 2
+
+Outputs:
+  UserPoolId:
+    Description: "ID of the Cognito User Pool"
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-id"
+  
+  UserPoolArn:
+    Description: "ARN of the Cognito User Pool"
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-arn"
+  
+  UserPoolClientId:
+    Description: "ID of the Cognito User Pool Client"
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-client-id"
+
+  UserPoolClientSecret:
+    Description: "Cognito User Pool Client Secret"
+    Value: !GetAtt UserPoolClient.ClientSecret
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-client-secret"
+  
+  UserPoolProviderName:
+    Description: "Provider name for the Cognito User Pool"
+    Value: !GetAtt UserPool.ProviderName
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-provider-name"
+  
+  UserPoolProviderURL:
+    Description: "Provider URL for the Cognito User Pool"
+    Value: !GetAtt UserPool.ProviderURL
+    Export:
+      Name: !Sub "${ProjectName}-user-pool-provider-url"
