@@ -1,0 +1,9 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "db-management-local"
+resolve_s3 = true
+s3_prefix = "db-management-local"
+region = "us-west-2"
+capabilities = ["CAPABILITY_IAM", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_NAMED_IAM"]
+parameter_overrides = "ProjectName=\"db-management\""
+image_repositories = []

@@ -33,6 +33,16 @@ Resources:
               - arn:aws:s3:::${InputBucket}/*
               - InputBucket:
                   Fn::ImportValue: finance-doc-core-infra-documents-bucket
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-LambdaInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource:
+              Fn::ImportValue: db-management-rds-data-function-arn
   ApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -65,6 +75,17 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  CognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-cognito-authorizer
+      Type: COGNITO_USER_POOLS
+      RestApiId:
+        Ref: WebApi
+      IdentitySource: method.request.header.Authorization
+      ProviderARNs:
+      - Fn::ImportValue: finance-doc-auth-services-user-pool-arn
   V1Resource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -89,9 +110,30 @@ Resources:
           Ref: WebApi
         V1Resource:
           Ref: V1Resource
+        CognitoAuthorizerId:
+          Ref: CognitoAuthorizer
       Location: DocumentsEndpoint/template.yaml
     Metadata:
       SamResourceId: DocumentsEndpoint
+  TransactionsEndpoint:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        ApiGatewayExecutionRoleArn:
+          Fn::GetAtt:
+          - ApiGatewayExecutionRole
+          - Arn
+        WebApi:
+          Ref: WebApi
+        V1Resource:
+          Ref: V1Resource
+        CognitoAuthorizerId:
+          Ref: CognitoAuthorizer
+      Location: TransactionsEndpoint/template.yaml
+    Metadata:
+      SamResourceId: TransactionsEndpoint
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:

@@ -31,6 +31,14 @@ Resources:
                 Resource: !Sub
                   - "arn:aws:s3:::${InputBucket}/*"
                   - InputBucket: !ImportValue finance-doc-core-infra-documents-bucket
+        - PolicyName: !Sub "${ProjectName}-LambdaInvokePolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !ImportValue db-management-rds-data-function-arn
 
   ApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
@@ -63,6 +71,16 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
 
+  CognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: !Sub "${ProjectName}-cognito-authorizer"
+      Type: COGNITO_USER_POOLS
+      RestApiId: !Ref WebApi
+      IdentitySource: method.request.header.Authorization
+      ProviderARNs:
+        - !ImportValue finance-doc-auth-services-user-pool-arn
+
   V1Resource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -78,7 +96,19 @@ Resources:
         ApiGatewayExecutionRoleArn: !GetAtt ApiGatewayExecutionRole.Arn
         WebApi: !Ref WebApi
         V1Resource: !Ref V1Resource
+        CognitoAuthorizerId: !Ref CognitoAuthorizer
       Location: ./v1/documents/template.yaml
+
+  TransactionsEndpoint:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName: !Ref ProjectName
+        ApiGatewayExecutionRoleArn: !GetAtt ApiGatewayExecutionRole.Arn
+        WebApi: !Ref WebApi
+        V1Resource: !Ref V1Resource
+        CognitoAuthorizerId: !Ref CognitoAuthorizer
+      Location: ./v1/transactions/template.yaml
 
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment

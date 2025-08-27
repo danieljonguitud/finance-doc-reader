@@ -1,0 +1,287 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Transactions API endpoint with Lambda integration
+
+Parameters:
+  ProjectName:
+    Type: String
+  ApiGatewayExecutionRoleArn:
+    Type: String
+  WebApi:
+    Type: String
+  V1Resource:
+    Type: String
+  CognitoAuthorizerId:
+    Type: String
+
+Resources:
+  TransactionsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WebApi
+      ParentId: !Ref V1Resource
+      PathPart: transactions
+
+  TransactionsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WebApi
+      ResourceId: !Ref TransactionsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.fields: false
+        method.request.querystring.limit: false
+        method.request.querystring.offset: false
+        method.request.querystring.category: false
+        method.request.querystring.transaction_type: false
+        method.request.querystring.start_date: false
+        method.request.querystring.end_date: false
+        method.request.querystring.orderBy: false
+        method.request.querystring.orderDirection: false
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !ImportValue db-management-rds-data-function-arn
+        Credentials: !Ref ApiGatewayExecutionRoleArn
+        RequestTemplates:
+          application/json: |
+            #set($userId = 1)
+            
+            #set($fields = $input.params('fields'))
+            #set($limit = $input.params('limit'))
+            #set($offset = $input.params('offset'))
+            #set($category = $input.params('category'))
+            #set($transactionType = $input.params('transaction_type'))
+            #set($startDate = $input.params('start_date'))
+            #set($endDate = $input.params('end_date'))
+            #set($orderBy = $input.params('orderBy'))
+            #set($orderDirection = $input.params('orderDirection'))
+            
+            #if(!$limit || $limit == "")
+              #set($limit = "20")
+            #end
+            
+            #if(!$offset || $offset == "")
+              #set($offset = "0")
+            #end
+            
+            #if(!$orderBy || $orderBy == "")
+              #set($orderBy = "created_at")
+            #end
+            
+            #if(!$orderDirection || $orderDirection == "")
+              #set($orderDirection = "DESC")
+            #end
+            
+            #set($whereConditions = [])
+            
+            ## Add user_id filter (always required)
+            #set($dummy = $whereConditions.add("user_id = :user_id"))
+            
+            ## Add optional filters
+            #if($category != "")
+              #set($dummy = $whereConditions.add("category = :category"))
+            #end
+            
+            #if($transactionType != "")
+              #set($dummy = $whereConditions.add("transaction_type = :transaction_type"))
+            #end
+            
+            #if($startDate != "")
+              #set($dummy = $whereConditions.add("transaction_date >= :start_date"))
+            #end
+            
+            #if($endDate != "")
+              #set($dummy = $whereConditions.add("transaction_date <= :end_date"))
+            #end
+            
+            ## Build WHERE clause
+            #set($whereClause = "")
+            #foreach($condition in $whereConditions)
+              #if($foreach.index == 0)
+                #set($whereClause = "WHERE $condition")
+              #else
+                #set($whereClause = "$whereClause AND $condition")
+              #end
+            #end
+            
+            {
+              "sql": "SELECT id, transaction_date, description, amount, transaction_type, category, bank_name, account_holder, created_at, COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER BY $orderBy $orderDirection LIMIT :limit OFFSET :offset",
+              "parameters": [
+                { 
+                  "name": "user_id",
+                  "longValue": $userId
+                },
+                #if($category != "")
+                { 
+                  "name": "category",
+                  "stringValue": "$category"
+                },
+                #end
+                #if($transactionType != "")
+                { 
+                  "name": "transaction_type",
+                  "stringValue": "$transactionType"
+                },
+                #end
+                #if($startDate != "")
+                { 
+                  "name": "start_date",
+                  "stringValue": "$startDate"
+                },
+                #end
+                #if($endDate != "")
+                { 
+                  "name": "end_date",
+                  "stringValue": "$endDate"
+                },
+                #end
+                { 
+                  "name": "limit",
+                  "longValue": $limit
+                },
+                { 
+                  "name": "offset",
+                  "longValue": $offset
+                }
+              ]
+            }
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: |
+                #set($records = $input.path('$.Records'))
+                #set($limit = $input.params('limit'))
+                #set($offset = $input.params('offset'))
+                #set($orderBy = $input.params('orderBy'))
+                #set($orderDirection = $input.params('orderDirection'))
+                
+                #if(!$limit || $limit == "")
+                  #set($limit = 20)
+                #end
+                
+                #if(!$offset || $offset == "")
+                  #set($offset = 0)
+                #end
+                
+                #if(!$orderBy || $orderBy == "")
+                  #set($orderBy = "created_at")
+                #end
+                
+                #if(!$orderDirection || $orderDirection == "")
+                  #set($orderDirection = "DESC")
+                #end
+                
+                #set($context.requestOverride.header.x-custom-order-by = $orderBy)
+                #set($context.requestOverride.header.x-custom-order-direction = $orderDirection)
+                {
+                  "data": [
+                    #foreach($record in $records)
+                    {
+                      "id": #if($record[0].Value)$record[0].Value#else null#end,
+                      "transaction_date": #if($record[1].Value)"$record[1].Value"#else null#end,
+                      "description": #if($record[2].Value)"$record[2].Value"#else null#end,
+                      "amount": #if($record[3].Value)"$record[3].Value"#else null#end,
+                      "transaction_type": #if($record[4].Value)"$record[4].Value"#else null#end,
+                      "category": #if($record[5].Value)"$record[5].Value"#else null#end,
+                      "bank_name": #if($record[6].Value)"$record[6].Value"#else null#end,
+                      "account_holder": #if($record[7].Value)"$record[7].Value"#else null#end,
+                      "created_at": #if($record[8].Value)"$record[8].Value"#else null#end
+                    }#if($foreach.hasNext),#end
+                    #end
+                  ],
+                  "pagination": {
+                    "limit": $limit,
+                    "offset": $offset,
+                    "count": $records.size(),
+                    "total": #if($records.size() > 0)$records[0][9].Value#{else}0#end
+                  }
+                }
+          - StatusCode: 400
+            SelectionPattern: ".*BadRequest.*"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: |
+                {
+                  "error": "Bad Request",
+                  "message": "Invalid query parameters or malformed request"
+                }
+          - StatusCode: 401
+            SelectionPattern: ".*Unauthorized.*"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: |
+                {
+                  "error": "Unauthorized",
+                  "message": "Invalid or missing JWT token"
+                }
+          - StatusCode: 500
+            SelectionPattern: ".*DatabaseError.*|.*InternalServerError.*"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: |
+                {
+                  "error": "Internal Server Error",
+                  "message": "Database query failed"
+                }
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+        - StatusCode: 400
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+        - StatusCode: 401
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+        - StatusCode: 500
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  TransactionsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WebApi
+      ResourceId: !Ref TransactionsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+Outputs:
+  TransactionsEndpoint:
+    Description: "Full URL for transactions endpoint"
+    Value: !Sub "https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/dev/v1/transactions"
+    Export:
+      Name: !Sub "${ProjectName}-transactions-endpoint"

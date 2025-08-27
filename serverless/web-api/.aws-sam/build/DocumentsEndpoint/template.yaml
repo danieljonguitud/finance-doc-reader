@@ -10,6 +10,8 @@ Parameters:
     Type: String
   V1Resource:
     Type: String
+  CognitoAuthorizerId:
+    Type: String
 Resources:
   DocumentsResource:
     Type: AWS::ApiGateway::Resource
