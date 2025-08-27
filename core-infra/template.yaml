@@ -224,7 +224,7 @@ Resources:
     Properties:
       DBClusterIdentifier: !Sub "${ProjectName}-postgres-cluster"
       Engine: aurora-postgresql
-      EngineVersion: 16.6
+      EngineVersion: 17
       DatabaseName: !Ref DatabaseName
       MasterUsername: finance_docs
       ManageMasterUserPassword: true
