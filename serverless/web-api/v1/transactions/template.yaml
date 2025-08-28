@@ -203,7 +203,8 @@ Resources:
                     #foreach($record in $records)
                     {
                       #foreach($fieldName in $responseFields)
-                        "$fieldName": #if($record[$foreach.index].Value)"$record[$foreach.index].Value"#else null#end#if($foreach.hasNext),#end
+                        #set($value = $record[$foreach.index].Value)
+                        "$fieldName": #if($value)#if($value.toString().matches("^-?\d+(\.\d+)?$"))$value#else"$value"#end#else null#end#if($foreach.hasNext),#end
                       #end
                     }#if($foreach.hasNext),#end
                     #end
