@@ -58,8 +58,8 @@ Resources:
             #set($transactionType = $input.params('transaction_type'))
             #set($startDate = $input.params('start_date'))
             #set($endDate = $input.params('end_date'))
-            #set($orderBy = $input.params('orderBy'))
-            #set($orderDirection = $input.params('orderDirection'))
+            #set($orderBy = $input.params('order_by'))
+            #set($orderDirection = $input.params('order_direction'))
             
             #if(!$limit || $limit == "")
               #set($limit = "20")
@@ -75,6 +75,19 @@ Resources:
             
             #if(!$orderDirection || $orderDirection == "")
               #set($orderDirection = "DESC")
+            #end
+            
+            ## Handle dynamic fields
+            #if(!$fields || $fields == "")
+              #set($selectFields = "id")
+            #else
+              #set($requestedFields = $fields.split(","))
+              #set($selectFields = $requestedFields.get(0).trim())
+              #foreach($field in $requestedFields)
+                #if($foreach.index > 0)
+                  #set($selectFields = "$selectFields, $field.trim()")
+                #end
+              #end
             #end
             
             #set($whereConditions = [])
@@ -110,7 +123,7 @@ Resources:
             #end
             
             {
-              "sql": "SELECT id, transaction_date, description, amount, transaction_type, category, bank_name, account_holder, created_at, COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER BY $orderBy $orderDirection LIMIT :limit OFFSET :offset",
+              "sql": "SELECT $selectFields, COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER BY $orderBy $orderDirection LIMIT :limit OFFSET :offset",
               "parameters": [
                 { 
                   "name": "user_id",
@@ -158,10 +171,12 @@ Resources:
               application/json: |
                 #set($records = $input.path('$.Records'))
                 #set($limit = $input.params('limit'))
+                #set($fields= $input.params('fields'))
                 #set($offset = $input.params('offset'))
-                #set($orderBy = $input.params('orderBy'))
-                #set($orderDirection = $input.params('orderDirection'))
-                
+                #set($fields = $input.params('fields'))
+                #set($orderBy = $input.params('order_by'))
+                #set($orderDirection = $input.params('order_direction'))
+   
                 #if(!$limit || $limit == "")
                   #set($limit = 20)
                 #end
@@ -170,12 +185,15 @@ Resources:
                   #set($offset = 0)
                 #end
                 
-                #if(!$orderBy || $orderBy == "")
-                  #set($orderBy = "created_at")
-                #end
-                
-                #if(!$orderDirection || $orderDirection == "")
-                  #set($orderDirection = "DESC")
+                ## Parse requested fields for response mapping
+                #if(!$fields || $fields == "")
+                  #set($responseFields = ["id"])
+                #else
+                  #set($requestedFields = $fields.split(","))
+                  #set($responseFields = [])
+                  #foreach($field in $requestedFields)
+                    #set($dummy = $responseFields.add($field.trim()))
+                  #end
                 #end
                 
                 #set($context.requestOverride.header.x-custom-order-by = $orderBy)
@@ -184,15 +202,9 @@ Resources:
                   "data": [
                     #foreach($record in $records)
                     {
-                      "id": #if($record[0].Value)$record[0].Value#else null#end,
-                      "transaction_date": #if($record[1].Value)"$record[1].Value"#else null#end,
-                      "description": #if($record[2].Value)"$record[2].Value"#else null#end,
-                      "amount": #if($record[3].Value)"$record[3].Value"#else null#end,
-                      "transaction_type": #if($record[4].Value)"$record[4].Value"#else null#end,
-                      "category": #if($record[5].Value)"$record[5].Value"#else null#end,
-                      "bank_name": #if($record[6].Value)"$record[6].Value"#else null#end,
-                      "account_holder": #if($record[7].Value)"$record[7].Value"#else null#end,
-                      "created_at": #if($record[8].Value)"$record[8].Value"#else null#end
+                      #foreach($fieldName in $responseFields)
+                        "$fieldName": #if($record[$foreach.index].Value)"$record[$foreach.index].Value"#else null#end#if($foreach.hasNext),#end
+                      #end
                     }#if($foreach.hasNext),#end
                     #end
                   ],
@@ -200,7 +212,7 @@ Resources:
                     "limit": $limit,
                     "offset": $offset,
                     "count": $records.size(),
-                    "total": #if($records.size() > 0)$records[0][9].Value#{else}0#end
+                    "total": #if($records.size() > 0)$records[0][$responseFields.size()].Value#{else}0#end
                   }
                 }
           - StatusCode: 400
