@@ -217,7 +217,7 @@ Resources:
                   }
                 }
           - StatusCode: 400
-            SelectionPattern: ".*BadRequest.*"
+            SelectionPattern: ".*SQL query is required.*|.*Failed to parse query parameters.*|.*Failed to execute database query.*|.*BadRequest.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -226,25 +226,24 @@ Resources:
                   "error": "Bad Request",
                   "message": "Invalid query parameters or malformed request"
                 }
-          - StatusCode: 401
-            SelectionPattern: ".*Unauthorized.*"
+          - StatusCode: 503
+            SelectionPattern: ".*Database is resuming.*|.*ServiceUnavailable.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
                 {
-                  "error": "Unauthorized",
-                  "message": "Invalid or missing JWT token"
+                  "error": "Service Unavailable",
+                  "message": "Database is temporarily unavailable, please retry in a few moments"
                 }
           - StatusCode: 500
-            SelectionPattern: ".*DatabaseError.*|.*InternalServerError.*"
+            SelectionPattern: ".*InternalServerError.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
                 {
-                  "error": "Internal Server Error",
-                  "message": "Database query failed"
+                  "error": "Internal Server Error"
                 }
       MethodResponses:
         - StatusCode: 200
@@ -257,7 +256,7 @@ Resources:
             method.response.header.Access-Control-Allow-Origin: true
           ResponseModels:
             application/json: Empty
-        - StatusCode: 401
+        - StatusCode: 503
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: true
           ResponseModels:

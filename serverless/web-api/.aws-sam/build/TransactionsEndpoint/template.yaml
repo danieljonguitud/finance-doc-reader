@@ -109,33 +109,35 @@ Resources:
               \n#set($context.requestOverride.header.x-custom-order-by = $orderBy)\n\
               #set($context.requestOverride.header.x-custom-order-direction = $orderDirection)\n\
               {\n  \"data\": [\n    #foreach($record in $records)\n    {\n      #foreach($fieldName\
-              \ in $responseFields)\n        \"$fieldName\": #if($record[$foreach.index].Value)\"\
-              $record[$foreach.index].Value\"#else null#end#if($foreach.hasNext),#end\n\
+              \ in $responseFields)\n        #set($value = $record[$foreach.index].Value)\n\
+              \        \"$fieldName\": #if($value)#if($value.toString().matches(\"\
+              ^-?\\d+(\\.\\d+)?$\"))$value#else\"$value\"#end#else null#end#if($foreach.hasNext),#end\n\
               \      #end\n    }#if($foreach.hasNext),#end\n    #end\n  ],\n  \"pagination\"\
               : {\n    \"limit\": $limit,\n    \"offset\": $offset,\n    \"count\"\
               : $records.size(),\n    \"total\": #if($records.size() > 0)$records[0][$responseFields.size()].Value#{else}0#end\n\
               \  }\n}\n"
         - StatusCode: 400
-          SelectionPattern: .*BadRequest.*
+          SelectionPattern: .*SQL query is required.*|.*Failed to parse query parameters.*|.*Failed
+            to execute database query.*|.*BadRequest.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
             application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
               Invalid query parameters or malformed request\"\n}\n"
-        - StatusCode: 401
-          SelectionPattern: .*Unauthorized.*
+        - StatusCode: 503
+          SelectionPattern: .*Database is resuming.*|.*ServiceUnavailable.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"\
-              Invalid or missing JWT token\"\n}\n"
+            application/json: "{\n  \"error\": \"Service Unavailable\",\n  \"message\"\
+              : \"Database is temporarily unavailable, please retry in a few moments\"\
+              \n}\n"
         - StatusCode: 500
-          SelectionPattern: .*DatabaseError.*|.*InternalServerError.*
+          SelectionPattern: .*InternalServerError.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Internal Server Error\",\n  \"message\"\
-              : \"Database query failed\"\n}\n"
+            application/json: "{\n  \"error\": \"Internal Server Error\"\n}\n"
       MethodResponses:
       - StatusCode: 200
         ResponseParameters:
@@ -147,7 +149,7 @@ Resources:
           method.response.header.Access-Control-Allow-Origin: true
         ResponseModels:
           application/json: Empty
-      - StatusCode: 401
+      - StatusCode: 503
         ResponseParameters:
           method.response.header.Access-Control-Allow-Origin: true
         ResponseModels:

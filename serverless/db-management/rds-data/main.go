@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -27,7 +28,13 @@ type ParameterJSON struct {
 	IsNull      *bool    `json:"isNull,omitempty"`
 }
 
+type LambdaError struct {
+	ErrorMessage string `json:"errorMessage"`
+}
 
+func (e *LambdaError) Error() string {
+	return e.ErrorMessage
+}
 
 var (
 	resourceArn  string
@@ -100,7 +107,9 @@ func handler(ctx context.Context, request RDSDataRequest) (*rdsdata.ExecuteState
 	log.Printf("Received RDS Data API request with SQL: %s", request.SQL)
 
 	if request.SQL == "" {
-		return nil, fmt.Errorf("sql is required")
+		return nil, &LambdaError{
+			ErrorMessage: "SQL query is required",
+		}
 	}
 
 	input := &rdsdata.ExecuteStatementInput{
@@ -114,7 +123,9 @@ func handler(ctx context.Context, request RDSDataRequest) (*rdsdata.ExecuteState
 		sqlParams, err := parseParameters(request.ParametersRaw)
 		if err != nil {
 			log.Printf("Failed to parse parameters: %v", err)
-			return nil, fmt.Errorf("failed to parse parameters: %w", err)
+			return nil, &LambdaError{
+				ErrorMessage: "Failed to parse query parameters",
+			}
 		}
 		input.Parameters = sqlParams
 		log.Printf("Parsed %d parameters successfully", len(sqlParams))
@@ -124,11 +135,22 @@ func handler(ctx context.Context, request RDSDataRequest) (*rdsdata.ExecuteState
 	result, err := rdsClient.ExecuteStatement(ctx, input)
 	if err != nil {
 		log.Printf("Failed to execute statement: %v", err)
-		return nil, fmt.Errorf("failed to execute SQL statement: %w", err)
+
+		// Check for specific AWS errors
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "DatabaseResumingException") {
+			return nil, &LambdaError{
+				ErrorMessage: "Database is resuming, please retry",
+			}
+		}
+
+		// Default to internal server error
+		return nil, &LambdaError{
+			ErrorMessage: "Failed to execute database query",
+		}
 	}
 
 	log.Printf("Successfully executed statement, returned %d records", len(result.Records))
 
 	return result, nil
 }
-
