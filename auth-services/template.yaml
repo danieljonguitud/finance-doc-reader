@@ -69,7 +69,7 @@ Resources:
         AccessToken: hours
         IdToken: hours
         RefreshToken: days
-      GenerateSecret: true
+      #GenerateSecret: true remove for now
       PreventUserExistenceErrors: ENABLED
       EnableTokenRevocation: true
       AllowedOAuthFlowsUserPoolClient: true
@@ -113,11 +113,11 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-user-pool-client-id"
 
-  UserPoolClientSecret:
-    Description: "Cognito User Pool Client Secret"
-    Value: !GetAtt UserPoolClient.ClientSecret
-    Export:
-      Name: !Sub "${ProjectName}-user-pool-client-secret"
+  #UserPoolClientSecret:
+  #  Description: "Cognito User Pool Client Secret"
+  #  Value: !GetAtt UserPoolClient.ClientSecret
+  #  Export:
+  #    Name: !Sub "${ProjectName}-user-pool-client-secret"
   
   UserPoolProviderName:
     Description: "Provider name for the Cognito User Pool"

@@ -29,8 +29,9 @@ Resources:
       ResourceId:
         Ref: DocumentsResource
       HttpMethod: POST
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerId
       RequestParameters:
         method.request.header.Content-Type: true
         method.request.header.x-file-name: true
@@ -39,7 +40,7 @@ Resources:
         IntegrationHttpMethod: PUT
         Uri:
           Fn::Sub:
-          - arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/userId/documents/{requestId}_{timestamp}/{filename}.pdf
+          - arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/{userId}/documents/{requestId}_{timestamp}/{filename}.pdf
           - InputBucket:
               Fn::ImportValue: finance-doc-core-infra-documents-bucket
         Credentials:
@@ -47,6 +48,7 @@ Resources:
         RequestParameters:
           integration.request.path.timestamp: context.requestTimeEpoch
           integration.request.path.filename: method.request.header.x-file-name
+          integration.request.path.userId: context.authorizer.claims.sub
           integration.request.path.requestId: context.requestId
           integration.request.header.Content-Type: method.request.header.Content-Type
         PassthroughBehavior: WHEN_NO_MATCH
@@ -57,10 +59,11 @@ Resources:
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "#set($timestamp = $context.requestTimeEpoch)\n#set($requestId\
-              \ = $context.requestId)\n#set($fileExt = \".pdf\")\n#set($filename =\
-              \ $input.params('x-file-name'))\n{\n  \"s3Key\": \"userId/documents/$requestId_$timestamp/$filename$fileExt\"\
-              ,\n  \"bucket\": \"$stageVariables.inputBucket\",\n}\n"
+            application/json: "#set($userId = $context.authorizer.claims.sub)\n#set($timestamp\
+              \ = $context.requestTimeEpoch)\n#set($requestId = $context.requestId)\n\
+              #set($fileExt = \".pdf\")\n#set($filename = $input.params('x-file-name'))\n\
+              {\n  \"s3Key\": \"$userId/documents/$requestId_$timestamp/$filename$fileExt\"\
+              ,\n  \"bucket\": \"$stageVariables.documentsBucket\",\n}\n"
         - StatusCode: 400
           SelectionPattern: 4\d{2}
           ResponseParameters:

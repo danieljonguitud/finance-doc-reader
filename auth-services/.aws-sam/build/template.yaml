@@ -73,7 +73,6 @@ Resources:
         AccessToken: hours
         IdToken: hours
         RefreshToken: days
-      GenerateSecret: true
       PreventUserExistenceErrors: ENABLED
       EnableTokenRevocation: true
       AllowedOAuthFlowsUserPoolClient: true
@@ -120,15 +119,6 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${ProjectName}-user-pool-client-id
-  UserPoolClientSecret:
-    Description: Cognito User Pool Client Secret
-    Value:
-      Fn::GetAtt:
-      - UserPoolClient
-      - ClientSecret
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-user-pool-client-secret
   UserPoolProviderName:
     Description: Provider name for the Cognito User Pool
     Value:

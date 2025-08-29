@@ -28,8 +28,8 @@ Resources:
       RestApiId: !Ref WebApi
       ResourceId: !Ref TransactionsResource
       HttpMethod: GET
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizerId
       RequestParameters:
         method.request.querystring.fields: false
         method.request.querystring.limit: false
@@ -49,8 +49,7 @@ Resources:
         Credentials: !Ref ApiGatewayExecutionRoleArn
         RequestTemplates:
           application/json: |
-            #set($userId = 1)
-            
+            #set($userId = $context.authorizer.claims.sub)
             #set($fields = $input.params('fields'))
             #set($limit = $input.params('limit'))
             #set($offset = $input.params('offset'))
@@ -92,8 +91,8 @@ Resources:
             
             #set($whereConditions = [])
             
-            ## Add user_id filter (always required)
-            #set($dummy = $whereConditions.add("user_id = :user_id"))
+            ## Add user_id filter (always required) - cast string to UUID
+            #set($dummy = $whereConditions.add("user_id = :user_id::uuid"))
             
             ## Add optional filters
             #if($category != "")
@@ -127,7 +126,7 @@ Resources:
               "parameters": [
                 { 
                   "name": "user_id",
-                  "longValue": $userId
+                  "stringValue": "$userId"
                 },
                 #if($category != "")
                 { 

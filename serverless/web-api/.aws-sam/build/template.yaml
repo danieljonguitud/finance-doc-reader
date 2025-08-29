@@ -152,7 +152,7 @@ Resources:
       StageName: dev
       Description: Stage for web-api
       Variables:
-        inputBucket:
+        documentsBucket:
           Fn::ImportValue: finance-doc-core-infra-documents-bucket
       MethodSettings:
       - ResourcePath: /*

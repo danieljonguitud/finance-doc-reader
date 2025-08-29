@@ -28,8 +28,8 @@ Resources:
       RestApiId: !Ref WebApi
       ResourceId: !Ref DocumentsResource
       HttpMethod: POST
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizerId
       RequestParameters:
         method.request.header.Content-Type: true
         method.request.header.x-file-name: true
@@ -37,12 +37,13 @@ Resources:
         Type: AWS
         IntegrationHttpMethod: PUT
         Uri: !Sub
-          - "arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/userId/documents/{requestId}_{timestamp}/{filename}.pdf"
+          - "arn:aws:apigateway:${AWS::Region}:s3:path/${InputBucket}/{userId}/documents/{requestId}_{timestamp}/{filename}.pdf"
           - InputBucket: !ImportValue finance-doc-core-infra-documents-bucket
         Credentials: !Ref ApiGatewayExecutionRoleArn
         RequestParameters:
           integration.request.path.timestamp: "context.requestTimeEpoch"
           integration.request.path.filename: "method.request.header.x-file-name"
+          integration.request.path.userId: "context.authorizer.claims.sub"
           integration.request.path.requestId: "context.requestId"
           integration.request.header.Content-Type: "method.request.header.Content-Type"
         PassthroughBehavior: WHEN_NO_MATCH
@@ -54,13 +55,14 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
+                #set($userId = $context.authorizer.claims.sub)
                 #set($timestamp = $context.requestTimeEpoch)
                 #set($requestId = $context.requestId)
                 #set($fileExt = ".pdf")
                 #set($filename = $input.params('x-file-name'))
                 {
-                  "s3Key": "userId/documents/$requestId_$timestamp/$filename$fileExt",
-                  "bucket": "$stageVariables.inputBucket",
+                  "s3Key": "$userId/documents/$requestId_$timestamp/$filename$fileExt",
+                  "bucket": "$stageVariables.documentsBucket",
                 }
           - StatusCode: 400
             SelectionPattern: "4\\d{2}"

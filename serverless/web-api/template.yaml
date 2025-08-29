@@ -126,7 +126,7 @@ Resources:
       StageName: dev
       Description: Stage for web-api
       Variables:
-        inputBucket: !ImportValue finance-doc-core-infra-documents-bucket
+        documentsBucket: !ImportValue finance-doc-core-infra-documents-bucket
       MethodSettings:
         - ResourcePath: "/*"
           HttpMethod: "*"

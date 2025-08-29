@@ -160,32 +160,11 @@ States:
   Prepare Database Context:
     Type: Pass
     Assign:
-      cognitoId: '{% $split($key, "/")[0] %}'
+      userId: '{% $split($key, "/")[0] %}'
       clusterArn: ${AuroraClusterArn}
       secretArn: ${DatabaseSecretArn}
       database: ${DatabaseName}
-    Next: Get User ID from Database
-  Get User ID from Database:
-    Type: Task
-    Resource: arn:aws:states:::aws-sdk:rdsdata:executeStatement
-    Arguments:
-      ResourceArn: '{% $clusterArn %}'
-      SecretArn: '{% $secretArn %}'
-      Database: '{% $database %}'
-      Sql: "SELECT id FROM users WHERE cognito_sub = :cognito_sub::uuid LIMIT 1"
-      Parameters:
-        - Name: cognito_sub
-          Value:
-            StringValue: '{% $cognitoId %}'
-    Retry:
-      - ErrorEquals:
-          - States.ALL
-        IntervalSeconds: 2
-        MaxAttempts: 3
-        BackoffRate: 2
     Next: Prepare Transaction Parameter Sets
-    Assign:
-      userId: '{% $states.result.Records[0][0].LongValue %}'
   Prepare Transaction Parameter Sets:
     Type: Pass
     Assign:
@@ -193,7 +172,7 @@ States:
         {% 
           $map($processedContent.transactions, function($transaction) {
             [
-              {"Name": "user_id", "Value": {"LongValue": $userId}},
+              {"Name": "user_id", "Value": {"StringValue": $userId}},
               {"Name": "transaction_date", "Value": {"StringValue": $transaction.date}},
               {"Name": "description", "Value": {"StringValue": $transaction.description}},
               {"Name": "amount", "Value": {"DoubleValue": $transaction.amount}},
@@ -210,7 +189,7 @@ States:
       ResourceArn: '{% $clusterArn %}'
       SecretArn: '{% $secretArn %}'
       Database: '{% $database %}'
-      Sql: "INSERT INTO transactions (user_id, transaction_date, description, amount, transaction_type, category) VALUES (:user_id, :transaction_date::date, :description, :amount, :transaction_type, :category)"
+      Sql: "INSERT INTO transactions (user_id, transaction_date, description, amount, transaction_type, category) VALUES (:user_id::uuid, :transaction_date::date, :description, :amount, :transaction_type, :category)"
       ParameterSets: '{% $parameterSets %}'
     Retry:
       - ErrorEquals:

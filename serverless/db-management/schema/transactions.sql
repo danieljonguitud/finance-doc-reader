@@ -3,7 +3,7 @@
 
 CREATE TABLE transactions (
     id BIGSERIAL PRIMARY KEY,
-    user_id SERIAL NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     
     -- Transaction details
     transaction_date DATE NOT NULL,
