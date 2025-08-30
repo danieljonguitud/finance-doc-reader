@@ -68,31 +68,31 @@ Resources:
             \  #set($selectFields = $requestedFields.get(0).trim())\n  #foreach($field\
             \ in $requestedFields)\n    #if($foreach.index > 0)\n      #set($selectFields\
             \ = \"$selectFields, $field.trim()\")\n    #end\n  #end\n#end\n\n#set($whereConditions\
-            \ = [])\n\n## Add user_id filter (always required)\n#set($dummy = $whereConditions.add(\"\
-            user_id = :user_id\"))\n\n## Add optional filters\n#if($category != \"\
-            \")\n  #set($dummy = $whereConditions.add(\"category = :category\"))\n\
-            #end\n\n#if($transactionType != \"\")\n  #set($dummy = $whereConditions.add(\"\
-            transaction_type = :transaction_type\"))\n#end\n\n#if($startDate != \"\
-            \")\n  #set($dummy = $whereConditions.add(\"transaction_date >= :start_date\"\
-            ))\n#end\n\n#if($endDate != \"\")\n  #set($dummy = $whereConditions.add(\"\
-            transaction_date <= :end_date\"))\n#end\n\n## Build WHERE clause\n#set($whereClause\
-            \ = \"\")\n#foreach($condition in $whereConditions)\n  #if($foreach.index\
-            \ == 0)\n    #set($whereClause = \"WHERE $condition\")\n  #else\n    #set($whereClause\
-            \ = \"$whereClause AND $condition\")\n  #end\n#end\n\n{\n  \"sql\": \"\
-            SELECT $selectFields, COUNT(*) OVER() as total_count FROM transactions\
-            \ $whereClause ORDER BY $orderBy $orderDirection LIMIT :limit OFFSET :offset\"\
-            ,\n  \"parameters\": [\n    { \n      \"name\": \"user_id\",\n      \"\
-            stringValue\": $userId\n    },\n    #if($category != \"\")\n    { \n \
-            \     \"name\": \"category\",\n      \"stringValue\": \"$category\"\n\
-            \    },\n    #end\n    #if($transactionType != \"\")\n    { \n      \"\
-            name\": \"transaction_type\",\n      \"stringValue\": \"$transactionType\"\
-            \n    },\n    #end\n    #if($startDate != \"\")\n    { \n      \"name\"\
-            : \"start_date\",\n      \"stringValue\": \"$startDate\"\n    },\n   \
-            \ #end\n    #if($endDate != \"\")\n    { \n      \"name\": \"end_date\"\
-            ,\n      \"stringValue\": \"$endDate\"\n    },\n    #end\n    { \n   \
-            \   \"name\": \"limit\",\n      \"longValue\": $limit\n    },\n    { \n\
-            \      \"name\": \"offset\",\n      \"longValue\": $offset\n    }\n  ]\n\
-            }\n"
+            \ = [])\n\n## Add user_id filter (always required) - cast string to UUID\n\
+            #set($dummy = $whereConditions.add(\"user_id = :user_id::uuid\"))\n\n\
+            ## Add optional filters\n#if($category != \"\")\n  #set($dummy = $whereConditions.add(\"\
+            category = :category\"))\n#end\n\n#if($transactionType != \"\")\n  #set($dummy\
+            \ = $whereConditions.add(\"transaction_type = :transaction_type\"))\n\
+            #end\n\n#if($startDate != \"\")\n#set($dummy = $whereConditions.add(\"\
+            transaction_date >= :start_date::date\"))\n#end\n\n#if($endDate != \"\"\
+            )\n#set($dummy = $whereConditions.add(\"transaction_date <= :end_date::date\"\
+            ))\n#end\n\n## Build WHERE clause\n#set($whereClause = \"\")\n#foreach($condition\
+            \ in $whereConditions)\n  #if($foreach.index == 0)\n    #set($whereClause\
+            \ = \"WHERE $condition\")\n  #else\n    #set($whereClause = \"$whereClause\
+            \ AND $condition\")\n  #end\n#end\n\n{\n  \"sql\": \"SELECT $selectFields,\
+            \ COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER\
+            \ BY $orderBy $orderDirection LIMIT :limit OFFSET :offset\",\n  \"parameters\"\
+            : [\n    { \n      \"name\": \"user_id\",\n      \"stringValue\": \"$userId\"\
+            \n    },\n    #if($category != \"\")\n    { \n      \"name\": \"category\"\
+            ,\n      \"stringValue\": \"$category\"\n    },\n    #end\n    #if($transactionType\
+            \ != \"\")\n    { \n      \"name\": \"transaction_type\",\n      \"stringValue\"\
+            : \"$transactionType\"\n    },\n    #end\n    #if($startDate != \"\")\n\
+            \    { \n      \"name\": \"start_date\",\n      \"stringValue\": \"$startDate\"\
+            \n    },\n    #end\n    #if($endDate != \"\")\n    { \n      \"name\"\
+            : \"end_date\",\n      \"stringValue\": \"$endDate\"\n    },\n    #end\n\
+            \    { \n      \"name\": \"limit\",\n      \"longValue\": $limit\n   \
+            \ },\n    { \n      \"name\": \"offset\",\n      \"longValue\": $offset\n\
+            \    }\n  ]\n}\n"
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -186,11 +186,20 @@ Resources:
           method.response.header.Access-Control-Allow-Headers: true
           method.response.header.Access-Control-Allow-Methods: true
           method.response.header.Access-Control-Allow-Origin: true
-Outputs:
-  TransactionsEndpoint:
-    Description: Full URL for transactions endpoint
-    Value:
-      Fn::Sub: https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/dev/v1/transactions
-    Export:
-      Name:
-        Fn::Sub: ${ProjectName}-transactions-endpoint
+  TransactionsSummaryEndpoint:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        ApiGatewayExecutionRoleArn:
+          Ref: ApiGatewayExecutionRoleArn
+        WebApi:
+          Ref: WebApi
+        TransactionsResource:
+          Ref: TransactionsResource
+        CognitoAuthorizerId:
+          Ref: CognitoAuthorizerId
+      Location: TransactionsSummaryEndpoint/template.yaml
+    Metadata:
+      SamResourceId: TransactionsSummaryEndpoint

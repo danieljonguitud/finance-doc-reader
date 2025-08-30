@@ -27,7 +27,7 @@ For endpoint-specific business logic that cannot be handled by direct integratio
 
 ## Folder Structure & Organization
 
-The API structure is driven by the folder organization:
+The API structure is driven by the folder organization, where **folder paths directly map to API paths** and **CloudFormation template organization**:
 
 ```
 serverless/web-api/
@@ -36,19 +36,24 @@ serverless/web-api/
 │   ├── documents/               # /v1/documents endpoint
 │   │   └── template.yaml        # Documents SAM application
 │   ├── transactions/            # /v1/transactions endpoint  
-│   │   └── template.yaml        # Transactions SAM application
+│   │   ├── template.yaml        # Transactions SAM application
+│   │   └── summary/             # /v1/transactions/summary endpoint
+│   │       └── template.yaml    # Summary SAM application
 │   └── [new-endpoint]/          # /v1/[new-endpoint] endpoint
-│       └── template.yaml        # New endpoint SAM application
+│       ├── template.yaml        # Base endpoint SAM application
+│       └── [sub-endpoint]/      # /v1/[new-endpoint]/[sub-endpoint]
+│           └── template.yaml    # Sub-endpoint SAM application
 ```
 
-**Folder → Endpoint Mapping:**
-- `/v1/documents/` → `POST /v1/documents`
-- `/v1/transactions/` → `GET /v1/transactions`
-- `/v1/[new-endpoint]/` → `HTTP_METHOD /v1/[new-endpoint]`
+**Folder → Endpoint → Template Mapping:**
+- `/v1/documents/` → `POST /v1/documents` → Root template includes Documents application
+- `/v1/transactions/` → `GET /v1/transactions` → Root template includes Transactions application  
+- `/v1/transactions/summary/` → `GET /v1/transactions/summary` → Transactions template includes Summary application
+- `/v1/[endpoint]/[sub]/` → `HTTP_METHOD /v1/[endpoint]/[sub]` → Endpoint template includes Sub application
 
 ## SAM Nested Applications Architecture
 
-Each endpoint is implemented as a modular SAM nested application:
+Each endpoint is implemented as a modular SAM nested application with **hierarchical template organization**:
 
 ### Root Template (`template.yaml`)
 - API Gateway REST API definition
@@ -56,19 +61,40 @@ Each endpoint is implemented as a modular SAM nested application:
 - Cognito User Pool authorizer
 - API deployment and staging
 - Usage plans and API keys
+- **Includes**: Base-level endpoint applications (`v1/documents`, `v1/transactions`)
 
-### Endpoint Templates (`v1/[endpoint]/template.yaml`)
-- API Gateway resources and methods
+### Base Endpoint Templates (`v1/[endpoint]/template.yaml`)
+- API Gateway resources and methods for base endpoint
 - Integration configurations (S3, Lambda, Step Functions)
 - VTL request/response templates
 - CORS handling
 - Error response mapping
+- **Includes**: Sub-endpoint applications (`v1/[endpoint]/[sub-endpoint]`)
 
-This modular approach enables:
-- Independent development and testing of endpoints
-- Consistent authentication and authorization patterns
-- Shared infrastructure management
-- Easy addition of new API versions or endpoints
+### Sub-Endpoint Templates (`v1/[endpoint]/[sub-endpoint]/template.yaml`)
+- API Gateway resources and methods for nested endpoint
+- Own integration configurations and business logic
+- Independent VTL templates and error handling
+- References parent resource via parameters
+
+**Template Hierarchy Example:**
+```yaml
+# Root template.yaml
+TransactionsEndpoint:
+  Type: AWS::Serverless::Application
+  Location: ./v1/transactions/template.yaml
+
+# v1/transactions/template.yaml  
+TransactionsSummaryEndpoint:
+  Type: AWS::Serverless::Application
+  Location: ./summary/template.yaml
+```
+
+This hierarchical approach enables:
+- **Logical Grouping**: Related endpoints organized under parent resources
+- **Resource Inheritance**: Sub-endpoints reference parent API Gateway resources
+- **Independent Development**: Each level can be developed and tested separately
+- **Scalable Structure**: Easy to add new sub-endpoints under existing endpoints
 
 ## Core Technologies
 
@@ -81,16 +107,17 @@ This modular approach enables:
 
 ## Development Guidelines
 
-### Adding a New Endpoint
+### Adding a New Base Endpoint
 
 1. **Create Endpoint Directory**: `mkdir v1/[new-endpoint]`
 
 2. **Create SAM Template**: `v1/[new-endpoint]/template.yaml` with:
-   - API Gateway resource and methods
+   - API Gateway resource and methods for base endpoint
    - Appropriate AWS service integration
    - VTL request/response templates
    - CORS OPTIONS method
    - Error handling patterns
+   - Outputs section with resource references for sub-endpoints
 
 3. **Update Root Template**: Add the new SAM application to `template.yaml`:
    ```yaml
@@ -104,6 +131,30 @@ This modular approach enables:
          V1Resource: !Ref V1Resource
          CognitoAuthorizerId: !Ref CognitoAuthorizer
        Location: ./v1/[new-endpoint]/template.yaml
+   ```
+
+### Adding a Sub-Endpoint
+
+1. **Create Sub-Endpoint Directory**: `mkdir v1/[parent-endpoint]/[sub-endpoint]`
+
+2. **Create SAM Template**: `v1/[parent-endpoint]/[sub-endpoint]/template.yaml` with:
+   - Parameters to receive parent resource references
+   - API Gateway resource with parent as ParentId
+   - Sub-endpoint methods and integrations
+   - Independent business logic (Step Functions, etc.)
+
+3. **Update Parent Template**: Add the sub-endpoint application to `v1/[parent-endpoint]/template.yaml`:
+   ```yaml
+   SubEndpoint:
+     Type: AWS::Serverless::Application
+     Properties:
+       Parameters:
+         ProjectName: !Ref ProjectName
+         ApiGatewayExecutionRoleArn: !Ref ApiGatewayExecutionRoleArn
+         WebApi: !Ref WebApi
+         ParentResource: !Ref ParentEndpointResource
+         CognitoAuthorizerId: !Ref CognitoAuthorizerId
+       Location: ./[sub-endpoint]/template.yaml
    ```
 
 ### VTL Template Best Practices
@@ -150,6 +201,7 @@ All endpoints require Cognito User Pool authentication with JWT tokens in the Au
 
 - `POST /v1/documents` - Upload documents directly to S3
 - `GET /v1/transactions` - Query financial transactions with filtering
+- `GET /v1/transactions/summary` - Generate transaction summaries via Step Functions
 
 ## Monitoring
 

@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Transactions Summary API endpoint with Express Step Functions integration
+Parameters:
+  ProjectName:
+    Type: String
+  ApiGatewayExecutionRoleArn:
+    Type: String
+  WebApi:
+    Type: String
+  TransactionsResource:
+    Type: String
+  CognitoAuthorizerId:
+    Type: String
+Resources:
+  TransactionsSummaryStepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: states.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: CloudWatchLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: '*'
+  TransactionsSummaryStepFunction:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-transactions-summary
+      Type: EXPRESS
+      Role:
+        Fn::GetAtt:
+        - TransactionsSummaryStepFunctionRole
+        - Arn
+      DefinitionUri: ../../../../v1/transactions/summary/summary-state-machine.yaml
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+        - CloudWatchLogsLogGroup:
+            LogGroupArn:
+              Fn::GetAtt:
+              - TransactionsSummaryLogGroup
+              - Arn
+  TransactionsSummaryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/stepfunctions/${ProjectName}-transactions-summary
+      RetentionInDays: 14
+  TransactionsSummaryResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ParentId:
+        Ref: TransactionsResource
+      PathPart: summary
+  TransactionsSummaryGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ResourceId:
+        Ref: TransactionsSummaryResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerId
+      RequestParameters:
+        method.request.querystring.start_date: false
+        method.request.querystring.end_date: false
+        method.request.querystring.category: false
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:states:action/StartSyncExecution
+        Credentials:
+          Ref: ApiGatewayExecutionRoleArn
+        RequestTemplates:
+          application/json:
+            Fn::Sub: "#set($userId = $context.authorizer.claims.sub)\n#set($startDate\
+              \ = $input.params('start_date'))\n#set($endDate = $input.params('end_date'))\n\
+              #set($category = $input.params('category'))\n#set($timestamp = $context.requestTimeEpoch)\n\
+              \n{\n  \"stateMachineArn\": \"${TransactionsSummaryStepFunction}\",\n\
+              \  \"input\": \"{\\\"userId\\\": \\\"$userId\\\", \\\"startDate\\\"\
+              : \\\"$startDate\\\", \\\"endDate\\\": \\\"$endDate\\\", \\\"category\\\
+              \": \\\"$category\\\", \\\"timestamp\\\": $timestamp}\"\n}\n"
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "#set($output = $util.parseJson($input.json('$.output')))\n\
+              {\n  \"status\": \"$input.json('$.status')\",\n  \"executionArn\": \"\
+              $input.json('$.executionArn')\",\n  \"startDate\": \"$input.json('$.startDate')\"\
+              ,\n  \"stopDate\": \"$input.json('$.stopDate')\",\n  \"data\": $output\n\
+              }\n"
+        - StatusCode: 400
+          SelectionPattern: .*ExecutionLimitExceeded.*|.*InvalidParameterValue.*
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
+              Invalid execution parameters\"\n}\n"
+        - StatusCode: 500
+          SelectionPattern: .*
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: "{\n  \"error\": \"Internal Server Error\",\n  \"message\"\
+              : \"Step Function execution failed\"\n}\n"
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+      - StatusCode: 400
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+      - StatusCode: 500
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
+  TransactionsSummaryOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: WebApi
+      ResourceId:
+        Ref: TransactionsSummaryResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+            method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Headers: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Origin: true

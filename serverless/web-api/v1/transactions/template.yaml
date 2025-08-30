@@ -290,9 +290,13 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-Outputs:
-  TransactionsEndpoint:
-    Description: "Full URL for transactions endpoint"
-    Value: !Sub "https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com/dev/v1/transactions"
-    Export:
-      Name: !Sub "${ProjectName}-transactions-endpoint"
+  TransactionsSummaryEndpoint:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName: !Ref ProjectName
+        ApiGatewayExecutionRoleArn: !Ref ApiGatewayExecutionRoleArn
+        WebApi: !Ref WebApi
+        TransactionsResource: !Ref TransactionsResource
+        CognitoAuthorizerId: !Ref CognitoAuthorizerId
+      Location: ./summary/template.yaml

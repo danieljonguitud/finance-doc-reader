@@ -111,3 +111,5 @@ Pending
 - **Usage**: Shared across services for database operations
 - **Schema**: PostgreSQL with user-based data isolation
 
+## Reminders 
+- All our step functions should be in yaml, use the AWS::Serverless::StateMachine and DefinitionUri to refer to a file

@@ -43,6 +43,15 @@ Resources:
             - lambda:InvokeFunction
             Resource:
               Fn::ImportValue: db-management-rds-data-function-arn
+      - PolicyName:
+          Fn::Sub: ${ProjectName}-StepFunctionsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - states:StartSyncExecution
+            Resource: '*'
   ApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -138,6 +147,7 @@ Resources:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
     - DocumentsEndpoint
+    - TransactionsEndpoint
     Properties:
       RestApiId:
         Ref: WebApi
