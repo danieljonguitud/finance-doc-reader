@@ -104,11 +104,11 @@ Resources:
             #end
             
             #if($startDate != "")
-              #set($dummy = $whereConditions.add("transaction_date >= :start_date"))
+            #set($dummy = $whereConditions.add("transaction_date >= :start_date::date"))
             #end
             
             #if($endDate != "")
-              #set($dummy = $whereConditions.add("transaction_date <= :end_date"))
+            #set($dummy = $whereConditions.add("transaction_date <= :end_date::date"))
             #end
             
             ## Build WHERE clause
