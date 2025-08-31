@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Web Api
+Parameters:
+  ProjectName:
+    Type: String
+    Default: db-management
+Resources:
+  RdsDataLambda:
+    Type: AWS::Serverless::Application
+    Properties:
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+      Location: RdsDataLambda/template.yaml
+    Metadata:
+      SamResourceId: RdsDataLambda

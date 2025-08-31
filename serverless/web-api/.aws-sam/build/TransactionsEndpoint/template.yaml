@@ -59,9 +59,9 @@ Resources:
             #set($transactionType = $input.params('transaction_type'))\n#set($startDate\
             \ = $input.params('start_date'))\n#set($endDate = $input.params('end_date'))\n\
             #set($orderBy = $input.params('order_by'))\n#set($orderDirection = $input.params('order_direction'))\n\
-            \n#if(!$limit || $limit == \"\")\n  #set($limit = \"20\")\n#end\n\n#if(!$offset\
-            \ || $offset == \"\")\n  #set($offset = \"0\")\n#end\n\n#if(!$orderBy\
-            \ || $orderBy == \"\")\n  #set($orderBy = \"created_at\")\n#end\n\n#if(!$orderDirection\
+            \n#if(!$limit || $limit == \"\")\n  #set($limit = 20)\n#end\n\n#if(!$offset\
+            \ || $offset == \"\")\n  #set($offset = 0)\n#end\n\n#if(!$orderBy || $orderBy\
+            \ == \"\")\n  #set($orderBy = \"created_at\")\n#end\n\n#if(!$orderDirection\
             \ || $orderDirection == \"\")\n  #set($orderDirection = \"DESC\")\n#end\n\
             \n## Handle dynamic fields\n#if(!$fields || $fields == \"\")\n  #set($selectFields\
             \ = \"id\")\n#else\n  #set($requestedFields = $fields.split(\",\"))\n\
@@ -69,65 +69,56 @@ Resources:
             \ in $requestedFields)\n    #if($foreach.index > 0)\n      #set($selectFields\
             \ = \"$selectFields, $field.trim()\")\n    #end\n  #end\n#end\n\n#set($whereConditions\
             \ = [])\n\n## Add user_id filter (always required) - cast string to UUID\n\
-            #set($dummy = $whereConditions.add(\"user_id = :user_id::uuid\"))\n\n\
-            ## Add optional filters\n#if($category != \"\")\n  #set($dummy = $whereConditions.add(\"\
-            category = :category\"))\n#end\n\n#if($transactionType != \"\")\n  #set($dummy\
-            \ = $whereConditions.add(\"transaction_type = :transaction_type\"))\n\
-            #end\n\n#if($startDate != \"\")\n#set($dummy = $whereConditions.add(\"\
-            transaction_date >= :start_date::date\"))\n#end\n\n#if($endDate != \"\"\
-            )\n#set($dummy = $whereConditions.add(\"transaction_date <= :end_date::date\"\
-            ))\n#end\n\n## Build WHERE clause\n#set($whereClause = \"\")\n#foreach($condition\
-            \ in $whereConditions)\n  #if($foreach.index == 0)\n    #set($whereClause\
-            \ = \"WHERE $condition\")\n  #else\n    #set($whereClause = \"$whereClause\
-            \ AND $condition\")\n  #end\n#end\n\n{\n  \"sql\": \"SELECT $selectFields,\
-            \ COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER\
-            \ BY $orderBy $orderDirection LIMIT :limit OFFSET :offset\",\n  \"parameters\"\
-            : [\n    { \n      \"name\": \"user_id\",\n      \"stringValue\": \"$userId\"\
-            \n    },\n    #if($category != \"\")\n    { \n      \"name\": \"category\"\
-            ,\n      \"stringValue\": \"$category\"\n    },\n    #end\n    #if($transactionType\
-            \ != \"\")\n    { \n      \"name\": \"transaction_type\",\n      \"stringValue\"\
-            : \"$transactionType\"\n    },\n    #end\n    #if($startDate != \"\")\n\
-            \    { \n      \"name\": \"start_date\",\n      \"stringValue\": \"$startDate\"\
-            \n    },\n    #end\n    #if($endDate != \"\")\n    { \n      \"name\"\
-            : \"end_date\",\n      \"stringValue\": \"$endDate\"\n    },\n    #end\n\
-            \    { \n      \"name\": \"limit\",\n      \"longValue\": $limit\n   \
-            \ },\n    { \n      \"name\": \"offset\",\n      \"longValue\": $offset\n\
-            \    }\n  ]\n}\n"
+            #set($dummy = $whereConditions.add(\"user_id = CAST(:user_id AS uuid)\"\
+            ))\n\n## Add optional filters\n#if($category != \"\")\n  #set($dummy =\
+            \ $whereConditions.add(\"category = :category\"))\n#end\n\n#if($transactionType\
+            \ != \"\")\n  #set($dummy = $whereConditions.add(\"transaction_type =\
+            \ :transaction_type\"))\n#end\n\n#if($startDate != \"\")\n#set($dummy\
+            \ = $whereConditions.add(\"transaction_date >= :start_date::date\"))\n\
+            #end\n\n#if($endDate != \"\")\n#set($dummy = $whereConditions.add(\"transaction_date\
+            \ <= :end_date::date\"))\n#end\n\n## Build WHERE clause\n#set($whereClause\
+            \ = \"\")\n#foreach($condition in $whereConditions)\n  #if($foreach.index\
+            \ == 0)\n    #set($whereClause = \"WHERE $condition\")\n  #else\n    #set($whereClause\
+            \ = \"$whereClause AND $condition\")\n  #end\n#end\n\n{\n  \"operation\"\
+            : \"query\",\n  \"sql\": \"SELECT $selectFields FROM transactions $whereClause\
+            \ ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset\"\
+            ,\n  \"parameters\": [\n    { \n      \"name\": \"user_id\",\n      \"\
+            stringValue\": \"$userId\"\n    },\n    #if($category != \"\")\n    {\
+            \ \n      \"name\": \"category\",\n      \"stringValue\": \"$category\"\
+            \n    },\n    #end\n    #if($transactionType != \"\")\n    { \n      \"\
+            name\": \"transaction_type\",\n      \"stringValue\": \"$transactionType\"\
+            \n    },\n    #end\n    #if($startDate != \"\")\n    { \n      \"name\"\
+            : \"start_date\",\n      \"stringValue\": \"$startDate\"\n    },\n   \
+            \ #end\n    #if($endDate != \"\")\n    { \n      \"name\": \"end_date\"\
+            ,\n      \"stringValue\": \"$endDate\"\n    },\n    #end\n    { \n   \
+            \   \"name\": \"limit\",\n      \"longValue\": $limit\n    },\n    { \n\
+            \      \"name\": \"offset\",\n      \"longValue\": $offset\n    }\n  ]\n\
+            }\n"
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "#set($records = $input.path('$.Records'))\n#set($limit\
-              \ = $input.params('limit'))\n#set($fields= $input.params('fields'))\n\
-              #set($offset = $input.params('offset'))\n#set($fields = $input.params('fields'))\n\
-              #set($orderBy = $input.params('order_by'))\n#set($orderDirection = $input.params('order_direction'))\n\
-              \n#if(!$limit || $limit == \"\")\n  #set($limit = 20)\n#end\n\n#if(!$offset\
-              \ || $offset == \"\")\n  #set($offset = 0)\n#end\n\n## Parse requested\
-              \ fields for response mapping\n#if(!$fields || $fields == \"\")\n  #set($responseFields\
-              \ = [\"id\"])\n#else\n  #set($requestedFields = $fields.split(\",\"\
-              ))\n  #set($responseFields = [])\n  #foreach($field in $requestedFields)\n\
-              \    #set($dummy = $responseFields.add($field.trim()))\n  #end\n#end\n\
-              \n#set($context.requestOverride.header.x-custom-order-by = $orderBy)\n\
-              #set($context.requestOverride.header.x-custom-order-direction = $orderDirection)\n\
-              {\n  \"data\": [\n    #foreach($record in $records)\n    {\n      #foreach($fieldName\
-              \ in $responseFields)\n        #set($value = $record[$foreach.index].Value)\n\
-              \        \"$fieldName\": #if($value)#if($value.toString().matches(\"\
-              ^-?\\d+(\\.\\d+)?$\"))$value#else\"$value\"#end#else null#end#if($foreach.hasNext),#end\n\
-              \      #end\n    }#if($foreach.hasNext),#end\n    #end\n  ],\n  \"pagination\"\
-              : {\n    \"limit\": $limit,\n    \"offset\": $offset,\n    \"count\"\
-              : $records.size(),\n    \"total\": #if($records.size() > 0)$records[0][$responseFields.size()].Value#{else}0#end\n\
-              \  }\n}\n"
+            application/json: "#set($records = $input.path('$.records'))\n#set($total\
+              \ = $input.path('$.total'))\n#set($limit = $input.params('limit'))\n\
+              #set($offset = $input.params('offset'))\n#set($orderBy = $input.params('order_by'))\n\
+              #set($orderDirection = $input.params('order_direction'))\n\n#if(!$limit\
+              \ || $limit == \"\")\n  #set($limit = 20)\n#end\n\n#if(!$offset || $offset\
+              \ == \"\")\n  #set($offset = 0)\n#end\n\n#set($context.requestOverride.header.x-custom-order-by\
+              \ = $orderBy)\n#set($context.requestOverride.header.x-custom-order-direction\
+              \ = $orderDirection)\n{\n  \"data\": $input.json('$.records'),\n  \"\
+              pagination\": {\n    \"limit\": $limit,\n    \"offset\": $offset,\n\
+              \    \"count\": #if($records)$records.size()#else 0#end,\n    \"total\"\
+              : #if($total)$total#else 0#end\n  }\n}\n"
         - StatusCode: 400
-          SelectionPattern: .*SQL query is required.*|.*Failed to parse query parameters.*|.*Failed
-            to execute database query.*|.*BadRequest.*
+          SelectionPattern: .*400.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
             application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
               Invalid query parameters or malformed request\"\n}\n"
         - StatusCode: 503
-          SelectionPattern: .*Database is resuming.*|.*ServiceUnavailable.*
+          SelectionPattern: .*503.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
@@ -135,7 +126,7 @@ Resources:
               : \"Database is temporarily unavailable, please retry in a few moments\"\
               \n}\n"
         - StatusCode: 500
-          SelectionPattern: .*InternalServerError.*
+          SelectionPattern: .*500.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:

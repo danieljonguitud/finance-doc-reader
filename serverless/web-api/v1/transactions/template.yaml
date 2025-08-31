@@ -61,11 +61,11 @@ Resources:
             #set($orderDirection = $input.params('order_direction'))
             
             #if(!$limit || $limit == "")
-              #set($limit = "20")
+              #set($limit = 20)
             #end
             
             #if(!$offset || $offset == "")
-              #set($offset = "0")
+              #set($offset = 0)
             #end
             
             #if(!$orderBy || $orderBy == "")
@@ -92,7 +92,7 @@ Resources:
             #set($whereConditions = [])
             
             ## Add user_id filter (always required) - cast string to UUID
-            #set($dummy = $whereConditions.add("user_id = :user_id::uuid"))
+            #set($dummy = $whereConditions.add("user_id = CAST(:user_id AS uuid)"))
             
             ## Add optional filters
             #if($category != "")
@@ -122,7 +122,8 @@ Resources:
             #end
             
             {
-              "sql": "SELECT $selectFields, COUNT(*) OVER() as total_count FROM transactions $whereClause ORDER BY $orderBy $orderDirection LIMIT :limit OFFSET :offset",
+              "operation": "query",
+              "sql": "SELECT $selectFields FROM transactions $whereClause ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset",
               "parameters": [
                 { 
                   "name": "user_id",
@@ -168,11 +169,10 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
-                #set($records = $input.path('$.Records'))
+                #set($records = $input.path('$.records'))
+                #set($total = $input.path('$.total'))
                 #set($limit = $input.params('limit'))
-                #set($fields= $input.params('fields'))
                 #set($offset = $input.params('offset'))
-                #set($fields = $input.params('fields'))
                 #set($orderBy = $input.params('order_by'))
                 #set($orderDirection = $input.params('order_direction'))
    
@@ -184,39 +184,19 @@ Resources:
                   #set($offset = 0)
                 #end
                 
-                ## Parse requested fields for response mapping
-                #if(!$fields || $fields == "")
-                  #set($responseFields = ["id"])
-                #else
-                  #set($requestedFields = $fields.split(","))
-                  #set($responseFields = [])
-                  #foreach($field in $requestedFields)
-                    #set($dummy = $responseFields.add($field.trim()))
-                  #end
-                #end
-                
                 #set($context.requestOverride.header.x-custom-order-by = $orderBy)
                 #set($context.requestOverride.header.x-custom-order-direction = $orderDirection)
                 {
-                  "data": [
-                    #foreach($record in $records)
-                    {
-                      #foreach($fieldName in $responseFields)
-                        #set($value = $record[$foreach.index].Value)
-                        "$fieldName": #if($value)#if($value.toString().matches("^-?\d+(\.\d+)?$"))$value#else"$value"#end#else null#end#if($foreach.hasNext),#end
-                      #end
-                    }#if($foreach.hasNext),#end
-                    #end
-                  ],
+                  "data": $input.json('$.records'),
                   "pagination": {
                     "limit": $limit,
                     "offset": $offset,
-                    "count": $records.size(),
-                    "total": #if($records.size() > 0)$records[0][$responseFields.size()].Value#{else}0#end
+                    "count": #if($records)$records.size()#else 0#end,
+                    "total": #if($total)$total#else 0#end
                   }
                 }
           - StatusCode: 400
-            SelectionPattern: ".*SQL query is required.*|.*Failed to parse query parameters.*|.*Failed to execute database query.*|.*BadRequest.*"
+            SelectionPattern: ".*400.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -226,7 +206,7 @@ Resources:
                   "message": "Invalid query parameters or malformed request"
                 }
           - StatusCode: 503
-            SelectionPattern: ".*Database is resuming.*|.*ServiceUnavailable.*"
+            SelectionPattern: ".*503.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -236,7 +216,7 @@ Resources:
                   "message": "Database is temporarily unavailable, please retry in a few moments"
                 }
           - StatusCode: 500
-            SelectionPattern: ".*InternalServerError.*"
+            SelectionPattern: ".*500.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:

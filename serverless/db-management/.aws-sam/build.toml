@@ -5,6 +5,7 @@ codeuri = "/Users/dj/repos/finance-doc-reader/serverless/db-management/rds-data"
 runtime = "provided.al2023"
 architecture = "arm64"
 handler = "main"
+source_hash = "3fc2fbf4220f405b02514aa79c463797139a413d74aedb7655066a10b4649f68"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["RdsDataLambda/RdsDataFunction"]

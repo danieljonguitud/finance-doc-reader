@@ -92,11 +92,9 @@ Resources:
           application/json:
             Fn::Sub: "#set($userId = $context.authorizer.claims.sub)\n#set($startDate\
               \ = $input.params('start_date'))\n#set($endDate = $input.params('end_date'))\n\
-              #set($category = $input.params('category'))\n#set($timestamp = $context.requestTimeEpoch)\n\
               \n{\n  \"stateMachineArn\": \"${TransactionsSummaryStepFunction}\",\n\
               \  \"input\": \"{\\\"userId\\\": \\\"$userId\\\", \\\"startDate\\\"\
-              : \\\"$startDate\\\", \\\"endDate\\\": \\\"$endDate\\\", \\\"category\\\
-              \": \\\"$category\\\", \\\"timestamp\\\": $timestamp}\"\n}\n"
+              : \\\"$startDate\\\", \\\"endDate\\\": \\\"$endDate\\\"}\"\n}\n"
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:
