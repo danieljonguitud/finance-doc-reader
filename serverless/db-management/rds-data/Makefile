@@ -7,5 +7,4 @@
 # -o bootstrap: Output file name is 'bootstrap'
 # main.go: The main Go source file
 build-RdsDataFunction:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap main.go
-	cp bootstrap $(ARTIFACTS_DIR)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o $(ARTIFACTS_DIR)/bootstrap main.go

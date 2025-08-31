@@ -2,7 +2,8 @@
 
 [sync_state]
 dependency_layer = true
+latest_infra_sync_time = "2025-08-31T22:37:45.751574"
 
 [resource_sync_states."ZipFunctionSyncFlow:RdsDataLambda-RdsDataFunction"]
-hash = "c5d3a5e8f0c4fa22a992cf069b344e1b1c4c6fc8dbf1d946eda943b61038444d"
-sync_time = "2025-08-31T22:09:15.832484"
+hash = "c2335f7c929fcc569816825f88985e492242c00ad4c81411dfad039130df49fa"
+sync_time = "2025-08-31T22:42:51.604966"

@@ -52,7 +52,7 @@ Resources:
       FunctionName:
         Fn::Sub: ${ProjectName}-${ApplicationName}
       CodeUri: RdsDataFunction
-      Handler: main
+      Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
       - arm64

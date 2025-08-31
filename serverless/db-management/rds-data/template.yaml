@@ -50,7 +50,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${ProjectName}-${ApplicationName}"
       CodeUri: .
-      Handler: main
+      Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
         - arm64
