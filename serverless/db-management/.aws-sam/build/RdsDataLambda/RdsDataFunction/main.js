@@ -23219,31 +23219,162 @@ module.exports = __toCommonJS(main_exports);
 var import_client_rds_data = __toESM(require_dist_cjs53());
 var query = async (request, dataConn) => {
   const { resourceArn: resourceArn2, secretArn: secretArn2, databaseName: database, rdsClient: rdsClient2 } = dataConn;
-  const { sql, parameters } = request;
+  let { sql, parameters } = request;
+  const hasSelect = sql.toLowerCase().includes("select");
+  const hasLimit = sql.toLowerCase().includes("limit");
+  const sqlWithCount = addTotalCount(hasSelect, hasLimit, sql);
+  console.log("Query to proccess:", sqlWithCount);
   const cmd = new import_client_rds_data.ExecuteStatementCommand({
     resourceArn: resourceArn2,
     secretArn: secretArn2,
     database,
-    sql,
     parameters,
+    sql: sqlWithCount,
     formatRecordsAs: "JSON"
   });
-  const result = await rdsClient2.send(cmd);
-  const parsedResult = JSON.parse(result.formattedRecords || "");
+  const records = await rdsClient2.send(cmd);
+  const { parsedRecords, totalCount } = parseResults(hasSelect, hasLimit, records);
   return {
-    records: parsedResult,
-    total: 1e3
+    records: parsedRecords,
+    total: totalCount
+  };
+};
+var addTotalCount = (hasSelect, hasLimit, sql) => {
+  if (hasSelect && hasLimit) {
+    const lastFromIndex = sql.toLowerCase().lastIndexOf("from");
+    if (lastFromIndex !== -1) {
+      sql = sql.slice(0, lastFromIndex) + ", COUNT(*) OVER() as total_count " + sql.slice(lastFromIndex);
+    }
+  }
+  return sql;
+};
+var parseResults = (hasSelect, hasLimit, records) => {
+  const parsedRecords = JSON.parse(records.formattedRecords || "");
+  const totalCount = hasSelect && hasLimit && parsedRecords.length > 0 ? parsedRecords[0].total_count || 0 : 0;
+  if (hasSelect && hasLimit) {
+    parsedRecords.forEach((record) => delete record.total_count);
+  }
+  return {
+    parsedRecords,
+    totalCount
   };
 };
 
 // main.ts
 var import_client_rds_data2 = __toESM(require_dist_cjs53());
+
+// errors/DataRequestError.ts
+var DataRequestError = class extends Error {
+  constructor(code, message, originalError, retryable = false) {
+    super(message);
+    __publicField(this, "code");
+    __publicField(this, "retryable");
+    __publicField(this, "originalError");
+    this.name = "DataRequestError";
+    this.code = code;
+    this.retryable = retryable;
+    this.originalError = originalError;
+  }
+};
+
+// errors/map-data-error.ts
+var mapDataError = (error2) => {
+  const errorName = error2.name || error2.code || "UnknownError";
+  switch (errorName) {
+    case "DatabaseResumingException":
+      return new DataRequestError(
+        "DATABASE_RESUMING",
+        "503: Database is starting up, please retry in a few seconds",
+        error2,
+        true
+      );
+    case "StatementTimeoutException":
+      return new DataRequestError(
+        "QUERY_TIMEOUT",
+        "504: Query timeout - please try simplifying your query or adding more specific filters",
+        error2,
+        false
+      );
+    case "DatabaseUnavailableException":
+      return new DataRequestError(
+        "DATABASE_UNAVAILABLE",
+        "503: Database is temporarily unavailable, please retry",
+        error2,
+        true
+      );
+    case "InvalidSecretException":
+      return new DataRequestError(
+        "CONNECTION_ERROR",
+        "400: Database connection configuration error",
+        error2,
+        false
+      );
+    case "DatabaseNotFoundException":
+      return new DataRequestError(
+        "DATABASE_NOT_FOUND",
+        "400: Database configuration error - database not found",
+        error2,
+        false
+      );
+    case "BadRequestException":
+      return new DataRequestError(
+        "BAD_REQUEST",
+        "400: Invalid SQL statement or parameters",
+        error2,
+        false
+      );
+    case "DatabaseErrorException":
+      return new DataRequestError(
+        "SQL_ERROR",
+        "400: Error executing SQL statement - please check your query syntax",
+        error2,
+        false
+      );
+    case "AccessDeniedException":
+    case "ForbiddenException":
+      return new DataRequestError(
+        "ACCESS_DENIED",
+        "400: Insufficient permissions",
+        error2,
+        false
+      );
+    case "HttpEndpointNotEnabledException":
+      return new DataRequestError(
+        "CONFIGURATION_ERROR",
+        "500: Database HTTP endpoint is not enabled",
+        error2,
+        false
+      );
+    case "ServiceUnavailableError":
+      return new DataRequestError(
+        "SERVICE_UNAVAILABLE",
+        "503: Database service is temporarily unavailable",
+        error2,
+        true
+      );
+    case "InternalServerErrorException":
+      return new DataRequestError(
+        "INTERNAL_ERROR",
+        "500: Internal database error, please retry",
+        error2,
+        true
+      );
+    default:
+      return new DataRequestError(
+        "UNKNOWN_ERROR",
+        "400: An unexpected error occurred while processing your request",
+        error2,
+        false
+      );
+  }
+};
+
+// main.ts
 var resourceArn = process.env.AURORA_CLUSTER_ARN;
 var secretArn = process.env.DATABASE_SECRET_ARN;
 var databaseName = process.env.DATABASE_NAME;
 var rdsClient = new import_client_rds_data2.RDSDataClient();
 var handler = async (event, context) => {
-  console.log("event", event);
   const dataConn = {
     resourceArn,
     secretArn,
@@ -23255,13 +23386,11 @@ var handler = async (event, context) => {
       case "query":
         return await query(event, dataConn);
       default:
-        return {
-          records: [],
-          total: 0
-        };
+        throw new Error("400: Operation Not Supported");
     }
   } catch (err) {
-    throw err;
+    console.error(err);
+    throw mapDataError(err);
   }
 };
 // Annotate the CommonJS export names for ESM import in node:

@@ -83,11 +83,11 @@ Resources:
             : \"query\",\n  \"sql\": \"SELECT $selectFields FROM transactions $whereClause\
             \ ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset\"\
             ,\n  \"parameters\": [\n    { \n      \"name\": \"user_id\",\n      \"\
-            value\" {\n        \"stringValue\": \"$userId\"\n      }\n    },\n   \
-            \ #if($category != \"\")\n    { \n      \"name\": \"category\",\n    \
-            \  \"value\" {\n        \"stringValue\": \"$category\"\n      }\n    },\n\
-            \    #end\n    #if($transactionType != \"\")\n    { \n      \"name\":\
-            \ \"transaction_type\",\n      \"value\": {\n        \"stringValue\":\
+            value\": {\n        \"stringValue\": \"$userId\"\n      }\n    },\n  \
+            \  #if($category != \"\")\n    { \n      \"name\": \"category\",\n   \
+            \   \"value\": {\n        \"stringValue\": \"$category\"\n      }\n  \
+            \  },\n    #end\n    #if($transactionType != \"\")\n    { \n      \"name\"\
+            : \"transaction_type\",\n      \"value\": {\n        \"stringValue\":\
             \ \"$transactionType\"\n      }\n    },\n    #end\n    #if($startDate\
             \ != \"\")\n    { \n      \"name\": \"start_date\",\n      \"value\":\
             \ {\n        \"stringValue\": \"$startDate\"\n      }\n    },\n    #end\n\
@@ -118,22 +118,28 @@ Resources:
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
-              Invalid query parameters or malformed request\"\n}\n"
+            application/json: "#set($defaultMessage = \"Invalid query parameters or\
+              \ malformed request\")\n#set($errorMessage = $input.path('$.errorMessage'))\n\
+              {\n  \"error\": \"Bad Request\",\n  \"message\": #if($errorMessage)\"\
+              $errorMessage\"#else\"$defaultMessage\"#end\n}\n"
         - StatusCode: 503
           SelectionPattern: .*503.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Service Unavailable\",\n  \"message\"\
-              : \"Database is temporarily unavailable, please retry in a few moments\"\
-              \n}\n"
+            application/json: "#set($defaultMessage = \"Database is temporarily unavailable,\
+              \ please retry in a few moments\")\n#set($errorMessage = $input.path('$.errorMessage'))\n\
+              {\n  \"error\": \"Service Unavailable\",\n  \"message\": #if($errorMessage)\"\
+              $errorMessage\"#else\"$defaultMessage\"#end\n}\n"
         - StatusCode: 500
           SelectionPattern: .*500.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Internal Server Error\"\n}\n"
+            application/json: "#set($defaultMessage = \"An unexpected error occurred\"\
+              )\n#set($errorMessage = $input.path('$.errorMessage'))\n{\n  \"error\"\
+              : \"Internal Server Error\",\n  \"message\": #if($errorMessage)\"$errorMessage\"\
+              #else\"$defaultMessage\"#end\n}\n"
       MethodResponses:
       - StatusCode: 200
         ResponseParameters:

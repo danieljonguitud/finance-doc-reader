@@ -142,6 +142,7 @@ Resources:
           LoggingLevel: INFO
           DataTraceEnabled: true
           MetricsEnabled: true
+      TracingEnabled: true
       AccessLogSetting:
         DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
         Format: '{"requestId": "$context.requestId", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath", "status": "$context.status", "error.message": "$context.error.message", "error.messageString": "$context.error.messageString"}'

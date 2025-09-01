@@ -127,7 +127,7 @@ Resources:
               "parameters": [
                 { 
                   "name": "user_id",
-                  "value" {
+                  "value": {
                     "stringValue": "$userId"
                   }
                 },
@@ -215,9 +215,11 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
+                #set($defaultMessage = "Invalid query parameters or malformed request")
+                #set($errorMessage = $input.path('$.errorMessage'))
                 {
                   "error": "Bad Request",
-                  "message": "Invalid query parameters or malformed request"
+                  "message": #if($errorMessage)"$errorMessage"#else"$defaultMessage"#end
                 }
           - StatusCode: 503
             SelectionPattern: ".*503.*"
@@ -225,9 +227,11 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
+                #set($defaultMessage = "Database is temporarily unavailable, please retry in a few moments")
+                #set($errorMessage = $input.path('$.errorMessage'))
                 {
                   "error": "Service Unavailable",
-                  "message": "Database is temporarily unavailable, please retry in a few moments"
+                  "message": #if($errorMessage)"$errorMessage"#else"$defaultMessage"#end
                 }
           - StatusCode: 500
             SelectionPattern: ".*500.*"
@@ -235,8 +239,11 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
+                #set($defaultMessage = "An unexpected error occurred")
+                #set($errorMessage = $input.path('$.errorMessage'))
                 {
-                  "error": "Internal Server Error"
+                  "error": "Internal Server Error",
+                  "message": #if($errorMessage)"$errorMessage"#else"$defaultMessage"#end
                 }
       MethodResponses:
         - StatusCode: 200

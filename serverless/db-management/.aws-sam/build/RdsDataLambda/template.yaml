@@ -30,6 +30,7 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
       - PolicyName: RdsDataApiAccess
         PolicyDocument:
@@ -70,6 +71,9 @@ Resources:
         Fn::GetAtt:
         - RdsDataExecutionRole
         - Arn
+      Tracing: Active
+      LoggingConfig:
+        LogFormat: JSON
       Environment:
         Variables:
           LOG_LEVEL: INFO

@@ -170,6 +170,7 @@ Resources:
         LoggingLevel: INFO
         DataTraceEnabled: true
         MetricsEnabled: true
+      TracingEnabled: true
       AccessLogSetting:
         DestinationArn:
           Fn::GetAtt:
