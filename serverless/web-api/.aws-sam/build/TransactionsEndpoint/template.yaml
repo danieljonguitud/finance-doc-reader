@@ -83,17 +83,20 @@ Resources:
             : \"query\",\n  \"sql\": \"SELECT $selectFields FROM transactions $whereClause\
             \ ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset\"\
             ,\n  \"parameters\": [\n    { \n      \"name\": \"user_id\",\n      \"\
-            stringValue\": \"$userId\"\n    },\n    #if($category != \"\")\n    {\
-            \ \n      \"name\": \"category\",\n      \"stringValue\": \"$category\"\
-            \n    },\n    #end\n    #if($transactionType != \"\")\n    { \n      \"\
-            name\": \"transaction_type\",\n      \"stringValue\": \"$transactionType\"\
-            \n    },\n    #end\n    #if($startDate != \"\")\n    { \n      \"name\"\
-            : \"start_date\",\n      \"stringValue\": \"$startDate\"\n    },\n   \
-            \ #end\n    #if($endDate != \"\")\n    { \n      \"name\": \"end_date\"\
-            ,\n      \"stringValue\": \"$endDate\"\n    },\n    #end\n    { \n   \
-            \   \"name\": \"limit\",\n      \"longValue\": $limit\n    },\n    { \n\
-            \      \"name\": \"offset\",\n      \"longValue\": $offset\n    }\n  ]\n\
-            }\n"
+            value\" {\n        \"stringValue\": \"$userId\"\n      }\n    },\n   \
+            \ #if($category != \"\")\n    { \n      \"name\": \"category\",\n    \
+            \  \"value\" {\n        \"stringValue\": \"$category\"\n      }\n    },\n\
+            \    #end\n    #if($transactionType != \"\")\n    { \n      \"name\":\
+            \ \"transaction_type\",\n      \"value\": {\n        \"stringValue\":\
+            \ \"$transactionType\"\n      }\n    },\n    #end\n    #if($startDate\
+            \ != \"\")\n    { \n      \"name\": \"start_date\",\n      \"value\":\
+            \ {\n        \"stringValue\": \"$startDate\"\n      }\n    },\n    #end\n\
+            \    #if($endDate != \"\")\n    { \n      \"name\": \"end_date\",\n  \
+            \    \"value\": {\n        \"stringValue\": \"$endDate\"\n      }\n  \
+            \  },\n    #end\n    { \n      \"name\": \"limit\",\n      \"value\":\
+            \ {\n        \"longValue\": $limit\n      }\n    },\n    { \n      \"\
+            name\": \"offset\",\n      \"value\": {\n        \"longValue\": $offset\n\
+            \      }\n    }\n  ]\n}\n"
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:

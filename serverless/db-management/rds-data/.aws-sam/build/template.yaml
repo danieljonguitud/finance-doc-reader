@@ -46,14 +46,22 @@ Resources:
             - secretsmanager:DescribeSecret
             Resource:
               Fn::ImportValue: finance-doc-core-infra-database-secret-arn
+      - PolicyName: SourceMapEncrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - kms:Encrypt
+            Resource: '*'
   RdsDataFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName:
         Fn::Sub: ${ProjectName}-${ApplicationName}
       CodeUri: RdsDataFunction
-      Handler: main
-      Runtime: provided.al2023
+      Handler: main.handler
+      Runtime: nodejs22.x
       Architectures:
       - arm64
       MemorySize: 128
@@ -71,11 +79,19 @@ Resources:
             Fn::ImportValue: finance-doc-core-infra-database-secret-arn
           DATABASE_NAME:
             Fn::ImportValue: finance-doc-core-infra-database-name
+          NODE_OPTIONS: ' --enable-source-maps'
       Tags:
         Project:
           Ref: ProjectName
         Service: database-proxy
     Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+        - main.ts
+        Minify: false
+        Sourcemap: true
+        Target: es2020
       SamResourceId: RdsDataFunction
 Outputs:
   RdsDataFunctionArn:

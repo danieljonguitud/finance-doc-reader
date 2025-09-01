@@ -127,39 +127,53 @@ Resources:
               "parameters": [
                 { 
                   "name": "user_id",
-                  "stringValue": "$userId"
+                  "value" {
+                    "stringValue": "$userId"
+                  }
                 },
                 #if($category != "")
                 { 
                   "name": "category",
-                  "stringValue": "$category"
+                  "value" {
+                    "stringValue": "$category"
+                  }
                 },
                 #end
                 #if($transactionType != "")
                 { 
                   "name": "transaction_type",
-                  "stringValue": "$transactionType"
+                  "value": {
+                    "stringValue": "$transactionType"
+                  }
                 },
                 #end
                 #if($startDate != "")
                 { 
                   "name": "start_date",
-                  "stringValue": "$startDate"
+                  "value": {
+                    "stringValue": "$startDate"
+                  }
                 },
                 #end
                 #if($endDate != "")
                 { 
                   "name": "end_date",
-                  "stringValue": "$endDate"
+                  "value": {
+                    "stringValue": "$endDate"
+                  }
                 },
                 #end
                 { 
                   "name": "limit",
-                  "longValue": $limit
+                  "value": {
+                    "longValue": $limit
+                  }
                 },
                 { 
                   "name": "offset",
-                  "longValue": $offset
+                  "value": {
+                    "longValue": $offset
+                  }
                 }
               ]
             }

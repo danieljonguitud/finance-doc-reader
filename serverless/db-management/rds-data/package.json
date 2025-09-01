@@ -1,0 +1,18 @@
+{
+  "name": "rds-data",
+  "version": "1.0.0",
+  "description": "Data Lambda Adapter",
+  "main": "src/main.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dee Jay",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.879.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.3.0"
+  }
+}
