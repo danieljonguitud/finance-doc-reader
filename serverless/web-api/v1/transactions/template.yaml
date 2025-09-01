@@ -134,7 +134,7 @@ Resources:
                 #if($category != "")
                 { 
                   "name": "category",
-                  "value" {
+                  "value": {
                     "stringValue": "$category"
                   }
                 },
