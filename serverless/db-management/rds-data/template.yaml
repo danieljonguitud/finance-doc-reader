@@ -49,7 +49,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${ProjectName}-${ApplicationName}"
-      CodeUri: .
+      CodeUri: ./
       Handler: bootstrap
       Runtime: provided.al2023
       Architectures:

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"rds-data/types"
+	"rds-data/utils"
 	"regexp"
 	"strings"
 
@@ -125,7 +126,7 @@ func handler(ctx context.Context, request RDSDataRequest) (*types.DataResponse, 
 	}
 
 	if len(request.ParametersRaw) > 0 {
-		sqlParams, err := parseParameters(request.ParametersRaw)
+		sqlParams, err := utils.ParseParameters(request.ParametersRaw)
 		if err != nil {
 			log.Printf("Failed to parse parameters: %v", err)
 			return nil, &LambdaError{
