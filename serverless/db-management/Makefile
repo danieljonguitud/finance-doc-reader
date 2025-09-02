@@ -99,16 +99,20 @@ status: ## Show current database schema status
 
 diff: ## Show differences between current schema and desired schema
 	@echo "Schema differences:"
-	@atlas schema diff --from "$(DATABASE_URL)" --to "file://schema"
+	@atlas schema diff --from "$(DATABASE_URL)" --to "file://schema" --dev-url "docker://postgres/17/dev"
 
 migrate-new:
 	@echo "Creating new migration..."
 	@read -p "Enter migration name: " name; \
-	atlas migrate diff "$$name" --dir "file://migrations" --to "file://schema" --dev-url "$(DATABASE_URL)"
+	atlas migrate diff "$$name" --dir "file://migrations" --to "file://schema" --dev-url "docker://postgres/17/dev"
 
 migrate-apply: ## Apply pending migrations
 	@echo "Applying pending migrations..."
 	@atlas migrate apply --url "$(DATABASE_URL)" --dir "file://migrations"
+
+migrate-status: ## Show migration status
+	@echo "Migration status:"
+	@atlas migrate status --url "$(DATABASE_URL)" --dir "file://migrations"
 
 debug-connection: ## Debug database connection parameters
 	@echo "Connection Debug Info:"
