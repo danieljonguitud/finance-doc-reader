@@ -1,23 +1,23 @@
-import { RDSDataClient, SqlParameter } from "@aws-sdk/client-rds-data";
+import { RDSDataClient, SqlParameter } from "@aws-sdk/client-rds-data"
 
 export interface DataRequest {
-    operation: "query" | "create" | "update" | "delete";
-    sql: string;
-    parameters: SqlParameter[];
+    operation: "query" | "create" | "update" | "delete"
+    sql: string
+    parameters: SqlParameter[]
 }
 
 export interface Parameter {
-    value: any;
+    value: any
 }
 
 export interface DataResponse {
-    records: Record<string, any>[];
-    total?: number;
+    records: Record<string, any>[]
+    total?: number
 }
 
 export type DataConn = {
-    resourceArn: string;
-    secretArn: string;
-    databaseName: string;
-    rdsClient: RDSDataClient;
+    resourceArn: string
+    secretArn: string
+    databaseName: string
+    rdsClient: RDSDataClient
 }

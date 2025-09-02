@@ -1,7 +1,7 @@
-import { DataRequestError } from "./DataRequestError";
+import { DataRequestError } from "./DataRequestError"
 
 export const mapDataError = (error: any): DataRequestError => {
-    const errorName = error.name || error.code || 'UnknownError';
+    const errorName = error.name || error.code || 'UnknownError'
 
     switch (errorName) {
         case 'DatabaseResumingException':
@@ -10,7 +10,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '503: Database is starting up, please retry in a few seconds',
                 error,
                 true
-            );
+            )
 
         case 'StatementTimeoutException':
             return new DataRequestError(
@@ -18,7 +18,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '504: Query timeout - please try simplifying your query or adding more specific filters',
                 error,
                 false
-            );
+            )
 
         case 'DatabaseUnavailableException':
             return new DataRequestError(
@@ -26,7 +26,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '503: Database is temporarily unavailable, please retry',
                 error,
                 true
-            );
+            )
 
         case 'InvalidSecretException':
             return new DataRequestError(
@@ -34,7 +34,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: Database connection configuration error',
                 error,
                 false
-            );
+            )
 
         case 'DatabaseNotFoundException':
             return new DataRequestError(
@@ -42,7 +42,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: Database configuration error - database not found',
                 error,
                 false
-            );
+            )
 
         case 'BadRequestException':
             return new DataRequestError(
@@ -50,7 +50,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: Invalid SQL statement or parameters',
                 error,
                 false
-            );
+            )
 
         case 'DatabaseErrorException':
             return new DataRequestError(
@@ -58,7 +58,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: Error executing SQL statement - please check your query syntax',
                 error,
                 false
-            );
+            )
 
         case 'AccessDeniedException':
         case 'ForbiddenException':
@@ -67,7 +67,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: Insufficient permissions',
                 error,
                 false
-            );
+            )
 
         case 'HttpEndpointNotEnabledException':
             return new DataRequestError(
@@ -75,7 +75,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '500: Database HTTP endpoint is not enabled',
                 error,
                 false
-            );
+            )
 
         case 'ServiceUnavailableError':
             return new DataRequestError(
@@ -83,7 +83,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '503: Database service is temporarily unavailable',
                 error,
                 true
-            );
+            )
 
         case 'InternalServerErrorException':
             return new DataRequestError(
@@ -91,7 +91,7 @@ export const mapDataError = (error: any): DataRequestError => {
                 '500: Internal database error, please retry',
                 error,
                 true
-            );
+            )
 
         default:
             return new DataRequestError(
@@ -99,6 +99,6 @@ export const mapDataError = (error: any): DataRequestError => {
                 '400: An unexpected error occurred while processing your request',
                 error,
                 false
-            );
+            )
     }
 }
