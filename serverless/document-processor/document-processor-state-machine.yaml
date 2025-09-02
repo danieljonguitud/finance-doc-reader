@@ -18,10 +18,7 @@ States:
         key: '{% $key %}'
     Retry:
       - ErrorEquals:
-          - Lambda.ServiceException
-          - Lambda.AWSLambdaException
-          - Lambda.SdkClientException
-          - Lambda.TooManyRequestsException
+          - States.ALL
         IntervalSeconds: 1
         MaxAttempts: 3
         BackoffRate: 2
@@ -34,7 +31,7 @@ States:
     Arguments:
       Body: '{% $extractedText %}'
       Bucket: '{% $bucket %}'
-      Key: "{% $replace($key, '.pdf', '.md') %}"
+      Key: '{% $replace($key, ''.pdf'', ''.md'') %}'
     Resource: arn:aws:states:::aws-sdk:s3:putObject
     Next: Bedrock InvokeModel
   Bedrock InvokeModel:
@@ -71,7 +68,7 @@ States:
                   "N/A" as the value
 
                   5. Ensure all monetary values are returned as floats with 2
-                  decimal points (not strings). This includes cero cents (.00) Example: 20000 should be 20000.00
+                  decimal points (not strings)
 
                   6. Dates should be in ISO 8601 format (YYYY-MM-DD)
 
@@ -93,8 +90,8 @@ States:
 
                   { 
                     "accountInfo": {
-                      "accountHolder": <string or N/A>,
-                      "bankName": <string or N/A>,
+                      "institutionName": <string or N/A>,
+                      "accountNumber": <string or N/A>
                       "statementPeriod": {
                         "startDate": <YYYY-MM-DD or N/A>,
                         "endDate": <YYYY-MM-DD or N/A>"
@@ -108,11 +105,7 @@ States:
                         "type": <expense or income>,
                         "category": <string or N/A>
                       }
-                    ],
-                    "summary": {
-                      "totalIncome": <float/currency>,
-                      "totalExpenses": <float/currency>,
-                      "transactionCount": <integer>
+                    ]
                     }
                   }
 
@@ -132,9 +125,12 @@ States:
                   - Validate that the calculated totals match the statement if
                   possible
 
-                  - Some bank staments transactions start from: "Detalle de Movimientos", "Detalle de Operaciones", "Movimientos", "Transacciones Bancarias"
+                  - Some bank staments transactions start from: "Detalle de
+                  Movimientos", "Detalle de Operaciones", "Movimientos",
+                  "Transacciones Bancarias"
 
-                  - Sometimes the transactions table divided with text due to a page separation. Keep this in mind to not lose transactions
+                  - Sometimes the transactions table divided with text due to a
+                  page separation. Keep this in mind to not lose transactions
 
                   ## Bank Statement Text to Analyze: 
 
@@ -168,47 +164,42 @@ States:
   Prepare Transaction Parameter Sets:
     Type: Pass
     Assign:
-      parameterSets: >-
+      parameterSets: |-
         {% 
           $map($processedContent.transactions, function($transaction) {
             [
-              {"Name": "user_id", "Value": {"StringValue": $userId}},
-              {"Name": "transaction_date", "Value": {"StringValue": $transaction.date}},
-              {"Name": "description", "Value": {"StringValue": $transaction.description}},
-              {"Name": "amount", "Value": {"DoubleValue": $transaction.amount}},
-              {"Name": "transaction_type", "Value": {"StringValue": $transaction.type}},
-              {"Name": "category", "Value": {"StringValue": $transaction.category}}
+              {"name": "userId", "value": {"stringValue": $userId}},
+              {"name": "accountId", "value": {"longValue": 1}},
+              {"name": "transactionDate", "value": {"stringValue": $transaction.date}},
+              {"name": "description", "value": {"stringValue": $transaction.description}},
+              {"name": "amount", "value": {"doubleValue": $transaction.amount}},
+              {"name": "transactionType", "value": {"stringValue": $transaction.type}},
+              {"name": "category", "value": {"stringValue": $transaction.category}}
             ]
           })
         %}
-    Next: Insert All Transactions
-  Insert All Transactions:
+    Next: Insert All Transactionss
+  Insert All Transactionss:
     Type: Task
-    Resource: arn:aws:states:::aws-sdk:rdsdata:batchExecuteStatement
+    Resource: arn:aws:states:::lambda:invoke
+    Output: '{% $states.result.Payload %}'
     Arguments:
-      ResourceArn: '{% $clusterArn %}'
-      SecretArn: '{% $secretArn %}'
-      Database: '{% $database %}'
-      Sql: "INSERT INTO transactions (user_id, transaction_date, description, amount, transaction_type, category) VALUES (:user_id::uuid, :transaction_date::date, :description, :amount, :transaction_type, :category)"
-      ParameterSets: '{% $parameterSets %}'
+      FunctionName: ${DataLambdaArn}
+      Payload:
+        operation: create
+        sql: >-
+          INSERT INTO transactions (user_id, account_id, transaction_date, description,
+          amount, transaction_type, category) VALUES (:account_id, :userId::uuid,
+          :transactionDate::date, :description, :amount, :transactionType,
+          :category)
+        parameters: '{% $parameterSets %}'
     Retry:
       - ErrorEquals:
           - States.ALL
-        IntervalSeconds: 2
+        IntervalSeconds: 1
         MaxAttempts: 3
         BackoffRate: 2
-    Next: Finalize Processing
+        JitterStrategy: FULL
     Assign:
-      insertResult: '{% $states.result %}'
-  Finalize Processing:
-    Type: Pass
-    Assign:
-      finalResult:
-        processingMetadata: '{% $processingMetadata %}'
-        accountInfo: '{% $processedContent.accountInfo %}'
-        transactionsSummary: '{% $processedContent.summary %}'
-        databaseResult:
-          userId: '{% $userId %}'
-          transactionsInserted: '{% $count($processedContent.transactions) %}'
-          insertResult: '{% $insertResult %}'
+      extractedText: '{% $states.result.Payload.extractedText %}'
     End: true
