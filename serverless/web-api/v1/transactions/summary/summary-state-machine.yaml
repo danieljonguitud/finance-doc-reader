@@ -1,7 +1,91 @@
 Comment: A description of my state machine
-StartAt: Pass
+StartAt: Parallel
 States:
-  Pass:
+  Parallel:
+    Type: Parallel
+    Branches:
+      - StartAt: Get Total Income/Expenses
+        States:
+          Get Total Income/Expenses:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Arguments:
+              FunctionName: ${DataLambdaArn}
+              Payload:
+                operation: query
+                sql: >-
+                  SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount
+                  ELSE 0 END) as total_income, SUM(CASE WHEN transaction_type =
+                  'expense' THEN amount ELSE 0 END) as total_expenses, SUM(CASE
+                  WHEN transaction_type = 'income' THEN amount ELSE -amount END)
+                  as net_income FROM transactions WHERE user_id = :userId::uuid
+                  AND transaction_date BETWEEN :startDate::date AND
+                  :endDate::date
+                parameters:
+                  - name: userId
+                    value:
+                      stringValue: '{% $states.input.userId %}'
+                  - name: startDate
+                    value:
+                      stringValue: '{% $states.input.startDate %}'
+                  - name: endDate
+                    value:
+                      stringValue: '{% $states.input.endDate %}'
+            Retry:
+              - ErrorEquals:
+                  - States.ALL
+                IntervalSeconds: 3
+                MaxAttempts: 3
+                BackoffRate: 2
+                JitterStrategy: FULL
+            End: true
+            Output:
+              totals: '{% $states.result.Payload.records[0] %}'
+      - StartAt: Get Total Expenses by Category
+        States:
+          Get Total Expenses by Category:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Arguments:
+              FunctionName: ${DataLambdaArn}
+              Payload:
+                operation: query
+                sql: >-
+                  SELECT category, SUM(amount) as total_expenses, COUNT(*) as
+                  transaction_count, ROUND((SUM(amount) * 100.0 /
+                  SUM(SUM(amount)) OVER ()), 2) as percentage FROM transactions
+                  WHERE transaction_date BETWEEN :startDate::date AND
+                  :endDate::date AND user_id = :userId::uuid AND
+                  transaction_type = 'expense' GROUP BY category ORDER BY
+                  total_expenses DESC
+                parameters:
+                  - name: userId
+                    value:
+                      stringValue: '{% $states.input.userId %}'
+                  - name: startDate
+                    value:
+                      stringValue: '{% $states.input.startDate %}'
+                  - name: endDate
+                    value:
+                      stringValue: '{% $states.input.endDate %}'
+            Retry:
+              - ErrorEquals:
+                  - States.ALL
+                IntervalSeconds: 3
+                MaxAttempts: 3
+                BackoffRate: 2
+                JitterStrategy: FULL
+            End: true
+            Output:
+              expensesByCategory: '{% $states.result.Payload.records %}'
+    Next: Format Response
+  Format Response:
     Type: Pass
     End: true
+    Output:
+      totalIncome: '{% $states.input[0].totals.totalIncome %}'
+      totalExpenses: '{% $states.input[0].totals.totalExpenses %}'
+      netIncome: '{% $states.input[0].totals.netIncome %}'
+      expensesByCategory: '{% $states.input[1].expensesByCategory %}'
+      suggestion: Awesome AI help
 QueryLanguage: JSONata

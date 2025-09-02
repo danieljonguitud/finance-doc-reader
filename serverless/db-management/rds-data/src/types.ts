@@ -12,7 +12,7 @@ export interface Parameter {
 
 export interface DataResponse {
     records: Record<string, any>[];
-    total: number;
+    total?: number;
 }
 
 export type DataConn = {

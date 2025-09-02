@@ -32,6 +32,15 @@ Resources:
             Action:
             - logs:*
             Resource: '*'
+      - PolicyName: LambdaInvoke
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource:
+              Fn::ImportValue: db-management-rds-data-function-arn
   TransactionsSummaryStepFunction:
     Type: AWS::Serverless::StateMachine
     Properties:
@@ -52,6 +61,9 @@ Resources:
               Fn::GetAtt:
               - TransactionsSummaryLogGroup
               - Arn
+      DefinitionSubstitutions:
+        DataLambdaArn:
+          Fn::ImportValue: db-management-rds-data-function-arn
   TransactionsSummaryLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -80,7 +92,6 @@ Resources:
       RequestParameters:
         method.request.querystring.start_date: false
         method.request.querystring.end_date: false
-        method.request.querystring.category: false
       Integration:
         Type: AWS
         IntegrationHttpMethod: POST
@@ -101,24 +112,20 @@ Resources:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
             application/json: "#set($output = $util.parseJson($input.json('$.output')))\n\
-              {\n  \"status\": \"$input.json('$.status')\",\n  \"executionArn\": \"\
-              $input.json('$.executionArn')\",\n  \"startDate\": \"$input.json('$.startDate')\"\
-              ,\n  \"stopDate\": \"$input.json('$.stopDate')\",\n  \"data\": $output\n\
-              }\n"
+              {\n  \"data\": $output\n}\n"
         - StatusCode: 400
           SelectionPattern: .*ExecutionLimitExceeded.*|.*InvalidParameterValue.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
             application/json: "{\n  \"error\": \"Bad Request\",\n  \"message\": \"\
-              Invalid execution parameters\"\n}\n"
+              Invalid parameters\"\n}\n"
         - StatusCode: 500
-          SelectionPattern: .*
+          SelectionPattern: .*InternalServerError.*
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: '''*'''
           ResponseTemplates:
-            application/json: "{\n  \"error\": \"Internal Server Error\",\n  \"message\"\
-              : \"Step Function execution failed\"\n}\n"
+            application/json: "{\n  \"error\": \"Internal Server Error\"\n}\n"
       MethodResponses:
       - StatusCode: 200
         ResponseParameters:

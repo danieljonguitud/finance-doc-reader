@@ -23233,7 +23233,9 @@ var query = async (request, dataConn) => {
     formatRecordsAs: "JSON"
   });
   const records = await rdsClient2.send(cmd);
+  console.log("records", records);
   const { parsedRecords, totalCount } = parseResults(hasSelect, hasLimit, records);
+  console.log("parsedRecords", parsedRecords);
   return {
     records: parsedRecords,
     total: totalCount
@@ -23248,11 +23250,36 @@ var addTotalCount = (hasSelect, hasLimit, sql) => {
   }
   return sql;
 };
+var toCamelCase = (str) => {
+  return str.replace(/_([a-z])/g, (_2, letter) => letter.toUpperCase());
+};
+var normalizeObj = (record) => {
+  const converted = {};
+  for (const [key, value] of Object.entries(record)) {
+    const camelKey = toCamelCase(key);
+    if (typeof value === "string") {
+      if (!isNaN(Number(value)) && value !== "") {
+        converted[camelKey] = Number(value);
+      } else if (value === "true") {
+        converted[camelKey] = true;
+      } else if (value === "false") {
+        converted[camelKey] = false;
+      } else if (value === "null") {
+        converted[camelKey] = null;
+      } else {
+        converted[camelKey] = value;
+      }
+    } else {
+      converted[camelKey] = value;
+    }
+  }
+  return converted;
+};
 var parseResults = (hasSelect, hasLimit, records) => {
-  const parsedRecords = JSON.parse(records.formattedRecords || "");
-  const totalCount = hasSelect && hasLimit && parsedRecords.length > 0 ? parsedRecords[0].total_count || 0 : 0;
+  const parsedRecords = JSON.parse(records.formattedRecords || "").map(normalizeObj);
+  const totalCount = hasSelect && hasLimit && parsedRecords.length > 0 ? Number(parsedRecords[0].totalCount) || void 0 : void 0;
   if (hasSelect && hasLimit) {
-    parsedRecords.forEach((record) => delete record.total_count);
+    parsedRecords.forEach((record) => delete record.totalCount);
   }
   return {
     parsedRecords,

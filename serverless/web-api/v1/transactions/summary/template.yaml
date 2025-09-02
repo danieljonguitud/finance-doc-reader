@@ -34,6 +34,14 @@ Resources:
                 Action:
                   - logs:*
                 Resource: "*"
+        - PolicyName: LambdaInvoke
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !ImportValue db-management-rds-data-function-arn
 
   TransactionsSummaryStepFunction:
     Type: AWS::Serverless::StateMachine
@@ -48,6 +56,8 @@ Resources:
         Destinations:
           - CloudWatchLogsLogGroup:
               LogGroupArn: !GetAtt TransactionsSummaryLogGroup.Arn
+      DefinitionSubstitutions:
+        DataLambdaArn: !ImportValue db-management-rds-data-function-arn
 
   TransactionsSummaryLogGroup:
     Type: AWS::Logs::LogGroup
@@ -73,7 +83,6 @@ Resources:
       RequestParameters:
         method.request.querystring.start_date: false
         method.request.querystring.end_date: false
-        method.request.querystring.category: false
       Integration:
         Type: AWS
         IntegrationHttpMethod: POST
@@ -97,10 +106,6 @@ Resources:
               application/json: |
                 #set($output = $util.parseJson($input.json('$.output')))
                 {
-                  "status": "$input.json('$.status')",
-                  "executionArn": "$input.json('$.executionArn')",
-                  "startDate": "$input.json('$.startDate')",
-                  "stopDate": "$input.json('$.stopDate')",
                   "data": $output
                 }
           - StatusCode: 400
@@ -111,17 +116,16 @@ Resources:
               application/json: |
                 {
                   "error": "Bad Request",
-                  "message": "Invalid execution parameters"
+                  "message": "Invalid parameters"
                 }
           - StatusCode: 500
-            SelectionPattern: ".*"
+            SelectionPattern: ".*InternalServerError.*"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               application/json: |
                 {
-                  "error": "Internal Server Error",
-                  "message": "Step Function execution failed"
+                  "error": "Internal Server Error"
                 }
       MethodResponses:
         - StatusCode: 200

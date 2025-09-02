@@ -92,7 +92,7 @@ Resources:
             #set($whereConditions = [])
             
             ## Add user_id filter (always required) - cast string to UUID
-            #set($dummy = $whereConditions.add("user_id = CAST(:user_id AS uuid)"))
+            #set($dummy = $whereConditions.add("user_id = CAST(:userId AS uuid)"))
             
             ## Add optional filters
             #if($category != "")
@@ -100,15 +100,15 @@ Resources:
             #end
             
             #if($transactionType != "")
-              #set($dummy = $whereConditions.add("transaction_type = :transaction_type"))
+              #set($dummy = $whereConditions.add("transaction_type = :transactionType"))
             #end
             
             #if($startDate != "")
-            #set($dummy = $whereConditions.add("transaction_date >= :start_date::date"))
+            #set($dummy = $whereConditions.add("transaction_date >= :startDate::date"))
             #end
             
             #if($endDate != "")
-            #set($dummy = $whereConditions.add("transaction_date <= :end_date::date"))
+            #set($dummy = $whereConditions.add("transaction_date <= :endDate::date"))
             #end
             
             ## Build WHERE clause
@@ -126,7 +126,7 @@ Resources:
               "sql": "SELECT $selectFields FROM transactions $whereClause ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset",
               "parameters": [
                 { 
-                  "name": "user_id",
+                  "name": "userId",
                   "value": {
                     "stringValue": "$userId"
                   }
@@ -141,7 +141,7 @@ Resources:
                 #end
                 #if($transactionType != "")
                 { 
-                  "name": "transaction_type",
+                  "name": "transactionType",
                   "value": {
                     "stringValue": "$transactionType"
                   }
@@ -149,7 +149,7 @@ Resources:
                 #end
                 #if($startDate != "")
                 { 
-                  "name": "start_date",
+                  "name": "startDate",
                   "value": {
                     "stringValue": "$startDate"
                   }
@@ -157,7 +157,7 @@ Resources:
                 #end
                 #if($endDate != "")
                 { 
-                  "name": "end_date",
+                  "name": "endDate",
                   "value": {
                     "stringValue": "$endDate"
                   }

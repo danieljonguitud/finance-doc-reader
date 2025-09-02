@@ -69,34 +69,34 @@ Resources:
             \ in $requestedFields)\n    #if($foreach.index > 0)\n      #set($selectFields\
             \ = \"$selectFields, $field.trim()\")\n    #end\n  #end\n#end\n\n#set($whereConditions\
             \ = [])\n\n## Add user_id filter (always required) - cast string to UUID\n\
-            #set($dummy = $whereConditions.add(\"user_id = CAST(:user_id AS uuid)\"\
+            #set($dummy = $whereConditions.add(\"user_id = CAST(:userId AS uuid)\"\
             ))\n\n## Add optional filters\n#if($category != \"\")\n  #set($dummy =\
             \ $whereConditions.add(\"category = :category\"))\n#end\n\n#if($transactionType\
             \ != \"\")\n  #set($dummy = $whereConditions.add(\"transaction_type =\
-            \ :transaction_type\"))\n#end\n\n#if($startDate != \"\")\n#set($dummy\
-            \ = $whereConditions.add(\"transaction_date >= :start_date::date\"))\n\
-            #end\n\n#if($endDate != \"\")\n#set($dummy = $whereConditions.add(\"transaction_date\
-            \ <= :end_date::date\"))\n#end\n\n## Build WHERE clause\n#set($whereClause\
+            \ :transactionType\"))\n#end\n\n#if($startDate != \"\")\n#set($dummy =\
+            \ $whereConditions.add(\"transaction_date >= :startDate::date\"))\n#end\n\
+            \n#if($endDate != \"\")\n#set($dummy = $whereConditions.add(\"transaction_date\
+            \ <= :endDate::date\"))\n#end\n\n## Build WHERE clause\n#set($whereClause\
             \ = \"\")\n#foreach($condition in $whereConditions)\n  #if($foreach.index\
             \ == 0)\n    #set($whereClause = \"WHERE $condition\")\n  #else\n    #set($whereClause\
             \ = \"$whereClause AND $condition\")\n  #end\n#end\n\n{\n  \"operation\"\
             : \"query\",\n  \"sql\": \"SELECT $selectFields FROM transactions $whereClause\
             \ ORDER BY $orderBy $orderDirection, id DESC LIMIT :limit OFFSET :offset\"\
-            ,\n  \"parameters\": [\n    { \n      \"name\": \"user_id\",\n      \"\
+            ,\n  \"parameters\": [\n    { \n      \"name\": \"userId\",\n      \"\
             value\": {\n        \"stringValue\": \"$userId\"\n      }\n    },\n  \
             \  #if($category != \"\")\n    { \n      \"name\": \"category\",\n   \
             \   \"value\": {\n        \"stringValue\": \"$category\"\n      }\n  \
             \  },\n    #end\n    #if($transactionType != \"\")\n    { \n      \"name\"\
-            : \"transaction_type\",\n      \"value\": {\n        \"stringValue\":\
-            \ \"$transactionType\"\n      }\n    },\n    #end\n    #if($startDate\
-            \ != \"\")\n    { \n      \"name\": \"start_date\",\n      \"value\":\
-            \ {\n        \"stringValue\": \"$startDate\"\n      }\n    },\n    #end\n\
-            \    #if($endDate != \"\")\n    { \n      \"name\": \"end_date\",\n  \
-            \    \"value\": {\n        \"stringValue\": \"$endDate\"\n      }\n  \
-            \  },\n    #end\n    { \n      \"name\": \"limit\",\n      \"value\":\
-            \ {\n        \"longValue\": $limit\n      }\n    },\n    { \n      \"\
-            name\": \"offset\",\n      \"value\": {\n        \"longValue\": $offset\n\
-            \      }\n    }\n  ]\n}\n"
+            : \"transactionType\",\n      \"value\": {\n        \"stringValue\": \"\
+            $transactionType\"\n      }\n    },\n    #end\n    #if($startDate != \"\
+            \")\n    { \n      \"name\": \"startDate\",\n      \"value\": {\n    \
+            \    \"stringValue\": \"$startDate\"\n      }\n    },\n    #end\n    #if($endDate\
+            \ != \"\")\n    { \n      \"name\": \"endDate\",\n      \"value\": {\n\
+            \        \"stringValue\": \"$endDate\"\n      }\n    },\n    #end\n  \
+            \  { \n      \"name\": \"limit\",\n      \"value\": {\n        \"longValue\"\
+            : $limit\n      }\n    },\n    { \n      \"name\": \"offset\",\n     \
+            \ \"value\": {\n        \"longValue\": $offset\n      }\n    }\n  ]\n\
+            }\n"
         IntegrationResponses:
         - StatusCode: 200
           ResponseParameters:
