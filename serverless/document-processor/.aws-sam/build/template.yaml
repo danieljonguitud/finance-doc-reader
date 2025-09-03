@@ -107,7 +107,7 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name:
-        Fn::Sub: ${ProjectName}.processor
+        Fn::Sub: ${ProjectName}.document-processor
       Role:
         Fn::GetAtt:
         - StepFunctionsExecutionRole
