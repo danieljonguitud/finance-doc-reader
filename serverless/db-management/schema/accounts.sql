@@ -7,7 +7,7 @@ CREATE TABLE accounts (
     
     -- Account identification
     account_name VARCHAR(255) NOT NULL,
-    account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('checking', 'savings', 'credit_card', 'loan', 'investment')),
+    account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('checking', 'credit_card')),
     institution VARCHAR(100) NOT NULL,
     
     -- Secure account number storage
@@ -16,6 +16,7 @@ CREATE TABLE accounts (
     
     -- Account properties
     is_liability BOOLEAN DEFAULT FALSE,       -- true for credit cards, loans
+    account_balance DECIMAL(15,2) NOT NULL,
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
