@@ -70,8 +70,9 @@ States:
                   5. Ensure all monetary values are returned as floats with 2
                   decimal points (not strings)
 
-                  6. Look for the Account details, this includes, account name,
-                  institution and type from the next types: checking, credit_card
+                  6. Look for the Bank account details, this includes, account name
+                  (not customer name), account balance, institution and type from
+                  the next types: checking, credit_card
 
                   7. Dates should be in ISO 8601 format (YYYY-MM-DD)
 
@@ -97,6 +98,7 @@ States:
                       "accountNumber": <string or N/A>,
                       "accountName": <string or N/A>,
                       "accountType": <checking or credit_card>,
+                      "accountBalance": <float/currency>,
                       "statementPeriod": {
                         "startDate": <YYYY-MM-DD or N/A>,
                         "endDate": <YYYY-MM-DD or N/A>"

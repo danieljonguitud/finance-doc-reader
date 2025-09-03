@@ -70,9 +70,10 @@ Resources:
             Action:
             - lambda:InvokeFunction
             Resource:
-              Fn::GetAtt:
+            - Fn::GetAtt:
               - RequestOcrFunction
               - Outputs.RequestOcrFunctionArn
+            - Fn::ImportValue: db-management-rds-data-function-arn
       - PolicyName:
           Fn::Sub: ${ProjectName}-CloudWatchLogsPolicy
         PolicyDocument:
@@ -83,26 +84,6 @@ Resources:
             - logs:*
             Resource:
               Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
-      - PolicyName:
-          Fn::Sub: ${ProjectName}-RDSDataApiPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - rds-data:ExecuteStatement
-            - rds-data:BatchExecuteStatement
-            - rds-data:BeginTransaction
-            - rds-data:CommitTransaction
-            - rds-data:RollbackTransaction
-            Resource:
-              Fn::ImportValue: finance-doc-core-infra-aurora-cluster-arn
-          - Effect: Allow
-            Action:
-            - secretsmanager:GetSecretValue
-            - secretsmanager:DescribeSecret
-            Resource:
-              Fn::ImportValue: finance-doc-core-infra-database-secret-arn
   DocumentProcessorStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
@@ -126,6 +107,8 @@ Resources:
           Fn::ImportValue: finance-doc-core-infra-database-secret-arn
         DatabaseName:
           Fn::ImportValue: finance-doc-core-infra-database-name
+        DataLambdaArn:
+          Fn::ImportValue: db-management-rds-data-function-arn
   DocumentProcessingDLQ:
     Type: AWS::SQS::Queue
     Properties:
