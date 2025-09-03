@@ -70,13 +70,16 @@ States:
                   5. Ensure all monetary values are returned as floats with 2
                   decimal points (not strings)
 
-                  6. Dates should be in ISO 8601 format (YYYY-MM-DD)
+                  6. Look for the Account details, this includes, account name,
+                  institution and type from the next types: checking, credit_card
 
-                  7. You must only use the categories from the list of available
+                  7. Dates should be in ISO 8601 format (YYYY-MM-DD)
+
+                  8. You must only use the categories from the list of available
                   categories. If there is no category suitable for a given
                   transaction, you must use "Otros"
 
-                  8. The output should be in JSON format only and nothing else
+                  9. The output should be in JSON format only and nothing else
 
                   ## Available Categories:
 
@@ -91,7 +94,9 @@ States:
                   { 
                     "accountInfo": {
                       "institutionName": <string or N/A>,
-                      "accountNumber": <string or N/A>
+                      "accountNumber": <string or N/A>,
+                      "accountName": <string or N/A>,
+                      "accountType": <checking or credit_card>,
                       "statementPeriod": {
                         "startDate": <YYYY-MM-DD or N/A>,
                         "endDate": <YYYY-MM-DD or N/A>"
@@ -106,7 +111,6 @@ States:
                         "category": <string or N/A>
                       }
                     ]
-                    }
                   }
 
                   ## Additional Guidelines:
@@ -152,7 +156,54 @@ States:
         key: '{% $key %}'
         modelId: anthropic.claude-3-5-haiku-20241022-v1:0
         timestamp: '{% $now() %}'
+    Next: Create or Get Account
+  Create or Get Account:
+    Type: Task
+    Resource: arn:aws:states:::lambda:invoke
+    Arguments:
+      FunctionName: ${DataLambdaArn}
+      Payload:
+        operation: create
+        sql: >-
+          INSERT INTO accounts (user_id, account_name, account_type, institution, 
+          account_number_hash, display_digits, is_liability, account_balance) 
+          VALUES (:userId::uuid, :accountName, :accountType, :institution, 
+          encode(sha256(:accountNumber::bytea), 'hex'), 
+          '****' || right(:accountNumber, 4), :isLibility, :accountBalance) 
+          ON CONFLICT (user_id, account_number_hash) 
+          DO UPDATE SET updated_at = CURRENT_TIMESTAMP, account_balance = :accountBalance
+          RETURNING id
+        parameters:
+          - name: userId
+            value:
+              stringValue: '{% $split($key, "/")[0] %}'
+          - name: accountName
+            value:
+              stringValue: '{% $processedContent.accountInfo.accountName %}'
+          - name: accountType
+            value:
+              stringValue: 'checking'
+          - name: institution
+            value:
+              stringValue: '{% $processedContent.accountInfo.institutionName %}'
+          - name: accountNumber
+            value:
+              stringValue: '{% $processedContent.accountInfo.accountNumber %}'
+          - name: isLiability
+            value:
+              booleanValue: "{% $processedContent.accountInfo.accountType = 'credit_card' ? true : false %}"
+          - name: accountBalance
+            value:
+              doubleValue: '{% $processedContent.accountInfo.accountBalance %}'
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        IntervalSeconds: 2
+        MaxAttempts: 3
+        BackoffRate: 2
     Next: Prepare Database Context
+    Assign:
+      accountId: '{% $states.result.Payload.records[0].id %}'
   Prepare Database Context:
     Type: Pass
     Assign:
@@ -169,7 +220,7 @@ States:
           $map($processedContent.transactions, function($transaction) {
             [
               {"name": "userId", "value": {"stringValue": $userId}},
-              {"name": "accountId", "value": {"longValue": 1}},
+              {"name": "accountId", "value": {"longValue": $accountId}},
               {"name": "transactionDate", "value": {"stringValue": $transaction.date}},
               {"name": "description", "value": {"stringValue": $transaction.description}},
               {"name": "amount", "value": {"doubleValue": $transaction.amount}},
@@ -189,7 +240,7 @@ States:
         operation: create
         sql: >-
           INSERT INTO transactions (user_id, account_id, transaction_date, description,
-          amount, transaction_type, category) VALUES (:account_id, :userId::uuid,
+          amount, transaction_type, category) VALUES (:userId::uuid, :accountId,
           :transactionDate::date, :description, :amount, :transactionType,
           :category)
         parameters: '{% $parameterSets %}'
@@ -201,5 +252,17 @@ States:
         BackoffRate: 2
         JitterStrategy: FULL
     Assign:
-      extractedText: '{% $states.result.Payload.extractedText %}'
+      insertResult: '{% $states.result %}'
+    Next: Finalize Processing
+  Finalize Processing:
+    Type: Pass
+    Assign:
+      finalResult:
+        processingMetadata: '{% $processingMetadata %}'
+        accountInfo: '{% $processedContent.accountInfo %}'
+        databaseResult:
+          userId: '{% $userId %}'
+          accountId: '{% $accountId %}'
+          transactionsInserted: '{% $count($processedContent.transactions) %}'
+          insertResult: '{% $insertResult %}'
     End: true

@@ -10,9 +10,14 @@ export interface Parameter {
     value: any
 }
 
-export interface DataResponse {
+export interface DataQueryResponse {
     records: Record<string, any>[]
     total?: number
+}
+
+export interface DataCreateResponse {
+    record?: Record<string, any>
+    recordsCreated?: number
 }
 
 export type DataConn = {

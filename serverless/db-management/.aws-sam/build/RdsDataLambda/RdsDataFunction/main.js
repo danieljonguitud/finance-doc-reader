@@ -21918,7 +21918,7 @@ var require_dist_cjs53 = __commonJS({
       AccessDeniedException: () => AccessDeniedException2,
       ArrayValue: () => ArrayValue,
       BadRequestException: () => BadRequestException,
-      BatchExecuteStatementCommand: () => BatchExecuteStatementCommand,
+      BatchExecuteStatementCommand: () => BatchExecuteStatementCommand2,
       BeginTransactionCommand: () => BeginTransactionCommand,
       CommitTransactionCommand: () => CommitTransactionCommand,
       DatabaseErrorException: () => DatabaseErrorException,
@@ -21927,7 +21927,7 @@ var require_dist_cjs53 = __commonJS({
       DatabaseUnavailableException: () => DatabaseUnavailableException,
       DecimalReturnType: () => DecimalReturnType,
       ExecuteSqlCommand: () => ExecuteSqlCommand,
-      ExecuteStatementCommand: () => ExecuteStatementCommand2,
+      ExecuteStatementCommand: () => ExecuteStatementCommand3,
       Field: () => Field,
       ForbiddenException: () => ForbiddenException,
       HttpEndpointNotEnabledException: () => HttpEndpointNotEnabledException,
@@ -23146,7 +23146,7 @@ var require_dist_cjs53 = __commonJS({
       cfId: output.headers["x-amz-cf-id"]
     }), "deserializeMetadata");
     var _a21;
-    var BatchExecuteStatementCommand = (_a21 = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+    var BatchExecuteStatementCommand2 = (_a21 = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
       return [
         (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
         (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
@@ -23178,7 +23178,7 @@ var require_dist_cjs53 = __commonJS({
     }).s("RdsDataService", "ExecuteSql", {}).n("RDSDataClient", "ExecuteSqlCommand").f(void 0, void 0).ser(se_ExecuteSqlCommand).de(de_ExecuteSqlCommand).build() {
     }, __name(_a24, "ExecuteSqlCommand"), _a24);
     var _a25;
-    var ExecuteStatementCommand2 = (_a25 = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+    var ExecuteStatementCommand3 = (_a25 = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
       return [
         (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
         (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
@@ -23194,11 +23194,11 @@ var require_dist_cjs53 = __commonJS({
     }).s("RdsDataService", "RollbackTransaction", {}).n("RDSDataClient", "RollbackTransactionCommand").f(void 0, void 0).ser(se_RollbackTransactionCommand).de(de_RollbackTransactionCommand).build() {
     }, __name(_a26, "RollbackTransactionCommand"), _a26);
     var commands3 = {
-      BatchExecuteStatementCommand,
+      BatchExecuteStatementCommand: BatchExecuteStatementCommand2,
       BeginTransactionCommand,
       CommitTransactionCommand,
       ExecuteSqlCommand,
-      ExecuteStatementCommand: ExecuteStatementCommand2,
+      ExecuteStatementCommand: ExecuteStatementCommand3,
       RollbackTransactionCommand
     };
     var _a27;
@@ -23217,42 +23217,8 @@ module.exports = __toCommonJS(main_exports);
 
 // operations/query.ts
 var import_client_rds_data = __toESM(require_dist_cjs53());
-var query = async (request, dataConn) => {
-  const { resourceArn: resourceArn2, secretArn: secretArn2, databaseName: database, rdsClient: rdsClient2 } = dataConn;
-  let { sql, parameters } = request;
-  const hasSelect = sql.toLowerCase().includes("select");
-  const hasLimit = sql.toLowerCase().includes("limit");
-  const sqlWithCount = addTotalCount(hasSelect, hasLimit, sql);
-  console.log("Query to proccess:", sqlWithCount);
-  const cmd = new import_client_rds_data.ExecuteStatementCommand({
-    resourceArn: resourceArn2,
-    secretArn: secretArn2,
-    database,
-    parameters,
-    sql: sqlWithCount,
-    formatRecordsAs: "JSON"
-  });
-  const records = await rdsClient2.send(cmd);
-  console.log("records", records);
-  const { parsedRecords, totalCount } = parseResults(hasSelect, hasLimit, records);
-  console.log("parsedRecords", parsedRecords);
-  return {
-    records: parsedRecords,
-    total: totalCount
-  };
-};
-var addTotalCount = (hasSelect, hasLimit, sql) => {
-  if (hasSelect && hasLimit) {
-    const lastFromIndex = sql.toLowerCase().lastIndexOf("from");
-    if (lastFromIndex !== -1) {
-      sql = sql.slice(0, lastFromIndex) + ", COUNT(*) OVER() as total_count " + sql.slice(lastFromIndex);
-    }
-  }
-  return sql;
-};
-var toCamelCase = (str) => {
-  return str.replace(/_([a-z])/g, (_2, letter) => letter.toUpperCase());
-};
+
+// operations/utils.ts
 var normalizeObj = (record) => {
   const converted = {};
   for (const [key, value] of Object.entries(record)) {
@@ -23275,20 +23241,109 @@ var normalizeObj = (record) => {
   }
   return converted;
 };
+var toCamelCase = (str) => {
+  return str.replace(/_([a-z])/g, (_2, letter) => letter.toUpperCase());
+};
+
+// operations/query.ts
+var query = async (request, dataConn) => {
+  const { resourceArn: resourceArn2, secretArn: secretArn2, databaseName: database, rdsClient: rdsClient2 } = dataConn;
+  let { sql, parameters } = request;
+  const hasSelect = sql.toLowerCase().includes("select");
+  const hasLimit = sql.toLowerCase().includes("limit");
+  const sqlWithCount = addTotalCount(hasSelect, hasLimit, sql);
+  console.log("Query to proccess:", sqlWithCount);
+  const cmd = new import_client_rds_data.ExecuteStatementCommand({
+    resourceArn: resourceArn2,
+    secretArn: secretArn2,
+    database,
+    parameters,
+    sql: sqlWithCount,
+    formatRecordsAs: "JSON"
+  });
+  const records = await rdsClient2.send(cmd);
+  return parseResults(hasSelect, hasLimit, records);
+};
+var addTotalCount = (hasSelect, hasLimit, sql) => {
+  if (hasSelect && hasLimit) {
+    const lastFromIndex = sql.toLowerCase().lastIndexOf("from");
+    if (lastFromIndex !== -1) {
+      sql = sql.slice(0, lastFromIndex) + ", COUNT(*) OVER() as total_count " + sql.slice(lastFromIndex);
+    }
+  }
+  return sql;
+};
 var parseResults = (hasSelect, hasLimit, records) => {
-  const parsedRecords = JSON.parse(records.formattedRecords || "").map(normalizeObj);
+  if (!records.formattedRecords) {
+    return {
+      records: [],
+      total: void 0
+    };
+  }
+  const parsedRecords = JSON.parse(records.formattedRecords).map(normalizeObj);
   const totalCount = hasSelect && hasLimit && parsedRecords.length > 0 ? Number(parsedRecords[0].totalCount) || void 0 : void 0;
   if (hasSelect && hasLimit) {
     parsedRecords.forEach((record) => delete record.totalCount);
   }
   return {
-    parsedRecords,
-    totalCount
+    records: parsedRecords ? parsedRecords : [],
+    total: totalCount
   };
 };
 
-// main.ts
+// operations/create.ts
 var import_client_rds_data2 = __toESM(require_dist_cjs53());
+var create = async (request, dataConn) => {
+  const { sql, parameters } = request;
+  const isBulkInsert = Array.isArray(parameters) && parameters.length > 0 && Array.isArray(parameters[0]);
+  console.log("Create operation - Bulk insert:", isBulkInsert);
+  console.log("SQL:", sql);
+  if (isBulkInsert) {
+    return await executeBulkInsert(sql, parameters, dataConn);
+  } else {
+    return await executeSingleInsert(sql, parameters, dataConn);
+  }
+};
+var executeSingleInsert = async (sql, parameters, dataConn) => {
+  const { resourceArn: resourceArn2, secretArn: secretArn2, databaseName: database, rdsClient: rdsClient2 } = dataConn;
+  const cmd = new import_client_rds_data2.ExecuteStatementCommand({
+    resourceArn: resourceArn2,
+    secretArn: secretArn2,
+    database,
+    parameters,
+    sql,
+    formatRecordsAs: "JSON"
+  });
+  const result = await rdsClient2.send(cmd);
+  const parsedRecord = parseInsertResult(result);
+  return {
+    record: parsedRecord
+  };
+};
+var executeBulkInsert = async (sql, parameterSets, dataConn) => {
+  const { resourceArn: resourceArn2, secretArn: secretArn2, databaseName: database, rdsClient: rdsClient2 } = dataConn;
+  const cmd = new import_client_rds_data2.BatchExecuteStatementCommand({
+    resourceArn: resourceArn2,
+    secretArn: secretArn2,
+    database,
+    parameterSets,
+    sql
+  });
+  const result = await rdsClient2.send(cmd);
+  return {
+    recordsCreated: result.updateResults?.length || 0
+  };
+};
+var parseInsertResult = (result) => {
+  if (!result.formattedRecords) {
+    return [];
+  }
+  const parsedRecords = JSON.parse(result.formattedRecords).map(normalizeObj);
+  return parsedRecords;
+};
+
+// main.ts
+var import_client_rds_data3 = __toESM(require_dist_cjs53());
 
 // errors/DataRequestError.ts
 var DataRequestError = class extends Error {
@@ -23400,7 +23455,7 @@ var mapDataError = (error2) => {
 var resourceArn = process.env.AURORA_CLUSTER_ARN;
 var secretArn = process.env.DATABASE_SECRET_ARN;
 var databaseName = process.env.DATABASE_NAME;
-var rdsClient = new import_client_rds_data2.RDSDataClient();
+var rdsClient = new import_client_rds_data3.RDSDataClient();
 var handler = async (event, context) => {
   const dataConn = {
     resourceArn,
@@ -23412,6 +23467,8 @@ var handler = async (event, context) => {
     switch (event.operation) {
       case "query":
         return await query(event, dataConn);
+      case "create":
+        return await create(event, dataConn);
       default:
         throw new Error("400: Operation Not Supported");
     }

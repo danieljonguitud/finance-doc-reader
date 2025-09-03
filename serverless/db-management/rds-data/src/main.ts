@@ -1,6 +1,7 @@
 import { Context } from "aws-lambda"
-import { DataConn, DataRequest, DataResponse } from "./types"
+import { DataConn, DataCreateResponse, DataQueryResponse, DataRequest } from "./types"
 import { query } from "./operations/query"
+import { create } from "./operations/create"
 import { RDSDataClient } from "@aws-sdk/client-rds-data"
 import { mapDataError } from "./errors/map-data-error"
 
@@ -9,7 +10,7 @@ const secretArn = process.env.DATABASE_SECRET_ARN!
 const databaseName = process.env.DATABASE_NAME!
 const rdsClient = new RDSDataClient()
 
-export const handler = async (event: DataRequest, context: Context): Promise<DataResponse> => {
+export const handler = async (event: DataRequest, context: Context): Promise<DataQueryResponse | DataCreateResponse> => {
     const dataConn: DataConn = {
         resourceArn,
         secretArn,
@@ -21,6 +22,8 @@ export const handler = async (event: DataRequest, context: Context): Promise<Dat
         switch (event.operation) {
             case "query":
                 return await query(event, dataConn)
+            case "create":
+                return await create(event, dataConn)
             default:
                 throw new Error("400: Operation Not Supported")
         }
@@ -29,5 +32,3 @@ export const handler = async (event: DataRequest, context: Context): Promise<Dat
         throw mapDataError(err)
     }
 }
-
-

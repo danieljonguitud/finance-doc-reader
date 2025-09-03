@@ -1,7 +1,8 @@
 import { ExecuteStatementCommand, ExecuteStatementCommandOutput } from "@aws-sdk/client-rds-data"
-import { DataConn, DataRequest, DataResponse } from "../types"
+import { DataConn, DataQueryResponse, DataRequest } from "../types"
+import { normalizeObj } from "./utils"
 
-export const query = async (request: DataRequest, dataConn: DataConn): Promise<DataResponse> => {
+export const query = async (request: DataRequest, dataConn: DataConn): Promise<DataQueryResponse> => {
     const { resourceArn, secretArn, databaseName: database, rdsClient } = dataConn
     let { sql, parameters } = request
 
@@ -22,12 +23,7 @@ export const query = async (request: DataRequest, dataConn: DataConn): Promise<D
 
     const records = await rdsClient.send(cmd)
 
-    const { parsedRecords, totalCount } = parseResults(hasSelect, hasLimit, records)
-
-    return {
-        records: parsedRecords,
-        total: totalCount
-    }
+    return parseResults(hasSelect, hasLimit, records)
 }
 
 const addTotalCount = (hasSelect: boolean, hasLimit: boolean, sql: string) => {
@@ -40,39 +36,15 @@ const addTotalCount = (hasSelect: boolean, hasLimit: boolean, sql: string) => {
     return sql
 }
 
-const toCamelCase = (str: string): string => {
-    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
-}
-
-const normalizeObj = (record: Record<string, any>): Record<string, any> => {
-    const converted: Record<string, any> = {}
-    for (const [key, value] of Object.entries(record)) {
-        const camelKey = toCamelCase(key)
-        if (typeof value === 'string') {
-            if (!isNaN(Number(value)) && value !== '') {
-                converted[camelKey] = Number(value)
-            }
-            else if (value === 'true') {
-                converted[camelKey] = true
-            }
-            else if (value === 'false') {
-                converted[camelKey] = false
-            }
-            else if (value === 'null') {
-                converted[camelKey] = null
-            }
-            else {
-                converted[camelKey] = value
-            }
-        } else {
-            converted[camelKey] = value
+const parseResults = (hasSelect: boolean, hasLimit: boolean, records: ExecuteStatementCommandOutput): DataQueryResponse => {
+    if (!records.formattedRecords) {
+        return {
+            records: [],
+            total: undefined
         }
     }
-    return converted
-}
 
-const parseResults = (hasSelect: boolean, hasLimit: boolean, records: ExecuteStatementCommandOutput) => {
-    const parsedRecords: Record<string, any>[] = JSON.parse(records.formattedRecords || '')
+    const parsedRecords: Record<string, any>[] = JSON.parse(records.formattedRecords)
         .map(normalizeObj)
 
     const totalCount = (hasSelect && hasLimit && parsedRecords.length > 0)
@@ -84,9 +56,7 @@ const parseResults = (hasSelect: boolean, hasLimit: boolean, records: ExecuteSta
     }
 
     return {
-        parsedRecords,
-        totalCount
+        records: parsedRecords ? parsedRecords : [],
+        total: totalCount
     }
 }
-
-
