@@ -23339,7 +23339,7 @@ var parseInsertResult = (result) => {
     return [];
   }
   const parsedRecords = JSON.parse(result.formattedRecords).map(normalizeObj);
-  return parsedRecords;
+  return parsedRecords[0];
 };
 
 // main.ts

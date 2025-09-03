@@ -39,6 +39,7 @@ Resources:
           - Effect: Allow
             Action:
             - rds-data:ExecuteStatement
+            - rds-data:BatchExecuteStatement
             Resource:
               Fn::ImportValue: finance-doc-core-infra-aurora-cluster-arn
           - Effect: Allow

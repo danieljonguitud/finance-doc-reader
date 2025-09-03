@@ -171,7 +171,7 @@ States:
           account_number_hash, display_digits, is_liability, account_balance) 
           VALUES (:userId::uuid, :accountName, :accountType, :institution, 
           encode(sha256(:accountNumber::bytea), 'hex'), 
-          '****' || right(:accountNumber, 4), :isLibility, :accountBalance) 
+          '****' || right(:accountNumber, 4), :isLiability, :accountBalance) 
           ON CONFLICT (user_id, account_number_hash) 
           DO UPDATE SET updated_at = CURRENT_TIMESTAMP, account_balance = :accountBalance
           RETURNING id
@@ -205,7 +205,7 @@ States:
         BackoffRate: 2
     Next: Prepare Database Context
     Assign:
-      accountId: '{% $states.result.Payload.records[0].id %}'
+      accountId: '{% $states.result.Payload.record.id %}'
   Prepare Database Context:
     Type: Pass
     Assign:

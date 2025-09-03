@@ -76,8 +76,8 @@ const parseInsertResult = (result: ExecuteStatementCommandOutput): Record<string
         return []
     }
 
-    const parsedRecords: Record<string, any> = JSON.parse(result.formattedRecords)
+    const parsedRecords: Record<string, any>[] = JSON.parse(result.formattedRecords)
         .map(normalizeObj)
 
-    return parsedRecords
+    return parsedRecords[0]
 }
