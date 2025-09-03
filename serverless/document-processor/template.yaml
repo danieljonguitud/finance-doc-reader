@@ -93,7 +93,7 @@ Resources:
   DocumentProcessorStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub "${ProjectName}.processor"
+      Name: !Sub "${ProjectName}.document-processor"
       Role: !GetAtt StepFunctionsExecutionRole.Arn
       DefinitionUri: document-processor-state-machine.yaml
       DefinitionSubstitutions:
